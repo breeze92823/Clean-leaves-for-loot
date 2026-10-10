@@ -164,6 +164,13 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
       ctx.fillStyle = C.boardPanel
       ctx.fillRect(0, 0, w, h)
       for (let i = 0; i < rows.length; i++) {
+        if (rows[i].me) {
+          ctx.fillStyle = 'rgba(122,255,74,0.28)'
+          ctx.fillRect(8, 86 + i * 50 - 25, w - 16, 48)
+          ctx.strokeStyle = '#7aff4a'
+          ctx.lineWidth = 3
+          ctx.strokeRect(8, 86 + i * 50 - 25, w - 16, 48)
+        }
         ctx.fillStyle = 'rgba(0,0,0,0.12)'
         ctx.fillRect(0, 86 + i * 50 + 22, w, 4)
       }
@@ -172,8 +179,9 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
       const rankFill = ['#ffd84a', '#d8e2ee', '#e89a5a']
       rows.forEach((r, i) => {
         const y = 86 + i * 50
-        const name = r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name
-        drawText(ctx, `#${i + 1} @${name}`, 40, y, { px: 30, fill: r.me ? '#7aff4a' : rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
+        const max = r.me ? 8 : 12
+        const name = r.name.length > max ? `${r.name.slice(0, max - 1)}…` : r.name
+        drawText(ctx, `#${i + 1} @${name}${r.me ? ' (You)' : ''}`, 40, y, { px: 30, fill: r.me ? '#7aff4a' : rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
         drawText(ctx, r.value, 400, y, { px: 30, fill: '#ffffff', strokeW: 3, shadow: false })
       })
     },
