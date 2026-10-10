@@ -1,5 +1,5 @@
 // Everything standing in the hub: shop stands with their NPCs, leaderboards,
-// the Worlds portal, the arcade, the training mounds,
+// the Worlds portal, the training mounds,
 // the vacuum showcase and the zone signs on the field. Decorative (the Sell Loot stand is driven by sell.js):
 // solid (colliders) but not interactive.
 import {
@@ -164,6 +164,13 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
       ctx.fillStyle = C.boardPanel
       ctx.fillRect(0, 0, w, h)
       for (let i = 0; i < rows.length; i++) {
+        if (rows[i].me) {
+          ctx.fillStyle = 'rgba(122,255,74,0.28)'
+          ctx.fillRect(8, 86 + i * 50 - 25, w - 16, 48)
+          ctx.strokeStyle = '#7aff4a'
+          ctx.lineWidth = 3
+          ctx.strokeRect(8, 86 + i * 50 - 25, w - 16, 48)
+        }
         ctx.fillStyle = 'rgba(0,0,0,0.12)'
         ctx.fillRect(0, 86 + i * 50 + 22, w, 4)
       }
@@ -172,8 +179,9 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
       const rankFill = ['#ffd84a', '#d8e2ee', '#e89a5a']
       rows.forEach((r, i) => {
         const y = 86 + i * 50
-        const name = r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name
-        drawText(ctx, `#${i + 1} @${name}`, 40, y, { px: 30, fill: r.me ? '#7aff4a' : rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
+        const max = r.me ? 8 : 12
+        const name = r.name.length > max ? `${r.name.slice(0, max - 1)}…` : r.name
+        drawText(ctx, `#${i + 1} @${name}${r.me ? ' (You)' : ''}`, 40, y, { px: 30, fill: r.me ? '#7aff4a' : rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
         drawText(ctx, r.value, 400, y, { px: 30, fill: '#ffffff', strokeW: 3, shadow: false })
       })
     },
@@ -314,43 +322,6 @@ function portal(parent, x, z, rot) {
       lock.object.visible = state.level < WORLD_PORTAL.unlockLevel && dx * dx + dz * dz < WORLD_PORTAL.near ** 2
     },
   }
-}
-
-// --- Arcade cabinet -------------------------------------------------------------
-
-function arcade(parent, x, z, rot) {
-  const g = placed(parent, x, 0, z, rot)
-  const black = std('#16161c')
-  const red = std('#e2262b')
-  g.add(mesh(new BoxGeometry(1.5, 2.9, 1.2), black, 0, 1.45, 0))
-  for (const s of [-1, 1]) g.add(mesh(new BoxGeometry(0.1, 3.0, 1.3), red, s * 0.8, 1.5, 0))
-  g.add(mesh(new BoxGeometry(1.6, 0.55, 1.0), std('#ffe234', { emissive: '#ffd000', emissiveIntensity: 0.4 }), 0, 3.15, 0.05))
-  const panelMesh = mesh(new BoxGeometry(1.5, 0.15, 0.6), std('#2a2a35'), 0, 1.35, 0.75)
-  panelMesh.rotation.x = 0.35
-  g.add(panelMesh)
-  g.add(mesh(new CylinderGeometry(0.06, 0.06, 0.18), red, -0.3, 1.5, 0.8))
-  g.add(mesh(new SphereGeometry(0.09), red, -0.3, 1.6, 0.8))
-  for (const bx of [0.15, 0.4]) g.add(mesh(new CylinderGeometry(0.07, 0.07, 0.06), std('#3a8bff'), bx, 1.47, 0.75))
-  g.add(mesh(new BoxGeometry(0.2, 0.3, 0.05), std('#c22020'), 0, 0.6, 0.62))
-  const screen = panel(
-    128,
-    104,
-    (ctx, w, h) => {
-      ctx.fillStyle = '#123a9a'
-      ctx.fillRect(0, 0, w, h)
-      const art = ['00100000100', '00010001000', '00111111100', '01101110110', '11111111111', '10111111101', '10100000101', '00011011000']
-      ctx.fillStyle = '#6fe8ff'
-      art.forEach((row, r) => [...row].forEach((v, c) => v === '1' && ctx.fillRect(20 + c * 8, 18 + r * 8, 8, 8)))
-    },
-    { height: 0.95, width: 1.2 },
-  )
-  screen.object.material.depthWrite = true
-  screen.object.position.set(0, 2.3, 0.61)
-  g.add(screen.object)
-  const label = textLabel('UNLOCK AT LEVEL 25', { height: 0.75, px: 80, fill: ['#fff27a', '#ffcc1a'], stroke: '#3a2a00' })
-  label.object.position.set(0, 4.2, 0)
-  g.add(label.object)
-  addCollider(x, z, 1.7, 1.6, 3.4, rot)
 }
 
 // --- Training mounds -------------------------------------------------------------
@@ -802,9 +773,8 @@ export function buildProps(scene) {
   const controls = controlsBoard(root, -23, 19.5, facing(-23, 19.5, 0, 4))
   window.addEventListener('controls-done', () => controls.show(5)) // hud.js, after the guide is completed
 
-  // East: Auras, arcade, Upgrades.
+  // East: Auras, Upgrades.
   npcs.push(stand(root, { x: AURA_STAND.x, z: AURA_STAND.z, rot: facing(AURA_STAND.x, AURA_STAND.z, 0, 4), awning: ['#ff3fd0', '#f4f4f4'], title: 'Auras', titleFill: ['#ffb4f0', '#ff4fc8', '#d61f9e'], npcLook: 'girl' }))
-  arcade(root, 25, 3, -Math.PI / 2)
 
   // South: training mounds on a two-step plinth, feedback board, Vacuums.
   const H = 28

@@ -4,6 +4,7 @@
 import { player } from './player.js'
 import { offer } from './interact.js'
 import { notify, state, toast } from './state.js'
+import { playCash } from './cashSound.js'
 import { AURAS, AURA_STAND } from './config.js'
 
 const OPEN = 5.5 // m from the stand to be offered the window
@@ -27,6 +28,7 @@ export function pickAura(id) {
   if (!state.auraOwned.includes(id)) {
     if (state.cash < a.cost) return toast('Not enough cash!')
     state.cash -= a.cost
+    playCash()
     state.auraOwned.push(id)
     toast(`${a.name} unlocked! Press Equip.`)
     return notify()

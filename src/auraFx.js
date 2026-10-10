@@ -95,6 +95,7 @@ export function buildAuraFx(id, { preview = false, light = false } = {}) {
     const m = new Mesh(geo, new MeshBasicMaterial({ color, vertexColors: true, side: DoubleSide, opacity, fog: false, ...add }))
     m.position.y = beamH / 2
     m.frustumCulled = false
+    m.visible = preview // no sky beam in the world; the preview keeps its short one
     group.add(m)
     return m
   }
@@ -173,8 +174,13 @@ export function buildAuraFx(id, { preview = false, light = false } = {}) {
   }
   if (bolts) rollBolts()
 
+  // `light` may be a shared PointLight that always lives in the scene: adding/removing a light changes the
+  // light count and recompiles every lit material (a visible hitch on equip).
   let lamp = null
-  if (light) {
+  if (light && light !== true) {
+    lamp = light
+    lamp.color.copy(c1)
+  } else if (light) {
     lamp = new PointLight(c1, 0, 10, 2)
     lamp.position.y = 1.2
     group.add(lamp)
@@ -272,7 +278,8 @@ export function buildAuraFx(id, { preview = false, light = false } = {}) {
       o.geometry?.dispose()
       o.material?.dispose()
     })
-    lamp?.dispose?.()
+    if (lamp && lamp.parent === group) lamp.dispose?.()
+    else if (lamp) lamp.intensity = 0
   }
   return { group, update, dispose }
 }

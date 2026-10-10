@@ -4,6 +4,7 @@
 import { player } from './player.js'
 import { offer } from './interact.js'
 import { notify, shortMoney, state, toast } from './state.js'
+import { playCash } from './cashSound.js'
 import { FREE_GIFT, TWIN_STAND, VACUUMS, VACUUM_STAND } from './config.js'
 
 import { createTurbineSound } from './turbineSound.js'
@@ -34,6 +35,7 @@ export function pickVacuum(id) {
     if (v.unlockLevel && state.level < v.unlockLevel) return toast(`Unlocks at Level ${v.unlockLevel}!`)
     if (state.cash < v.cost) return toast('Not enough cash!')
     state.cash -= v.cost
+    playCash()
     state.vacuumOwned.push(id)
   }
   state.vacuum = id

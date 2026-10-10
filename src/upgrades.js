@@ -4,6 +4,7 @@
 import { player } from './player.js'
 import { offer } from './interact.js'
 import { notify, state, toast, upgradeBonus } from './state.js'
+import { playCash } from './cashSound.js'
 import { HUD_START, PHYSICS, UPGRADE_GROWTH, UPGRADE_STAND, UPGRADES } from './config.js'
 
 const OPEN = 5.5 // m from the stand to be offered the window
@@ -42,6 +43,7 @@ export function buyUpgrade(id) {
   if (price === Infinity) return toast(`${u.name} is maxed!`)
   if (state.cash < price) return toast('Not enough cash!')
   state.cash -= price
+  playCash()
   state.upgrades[id] += 1
   applyUpgrades()
   toast(`${u.name} Lv.${state.upgrades[id]}!`)
