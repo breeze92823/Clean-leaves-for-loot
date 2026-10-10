@@ -9,12 +9,28 @@ export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
 // Shows the Bloxbux (gem) buy buttons, e.g. in the Upgrades window (see .env.example).
 export const BUY_WITH_BLOXBUX = import.meta.env.VITE_BUY_WITH_BLOXBUX === 'true'
 
+// Colyseus game server (Clean-leaves-for-loot-backend), one URL per Bloxity Legion channel: `npm run build`
+// (production) reads _MAIN, `npm run dev` and `npm run build:dev` read _DEV (`npm run dev` defaults to
+// the local server). Empty = net.js asks the Bloxity SDK for the channel's endpoint; with no SDK either
+// the game is offline (no saving, no other players).
+const SERVER_URL_DEV = import.meta.env.VITE_SERVER_URL_DEV || (import.meta.env.DEV ? 'ws://localhost:2567' : '')
+const SERVER_URL_MAIN = import.meta.env.VITE_SERVER_URL_MAIN || ''
+export const SERVER_URL = import.meta.env.MODE === 'production' ? SERVER_URL_MAIN : SERVER_URL_DEV
+export const NET = {
+  poseHz: 15, // pose messages per second
+  saveDebounce: 1.5, // s of quiet after a state change before saving
+  saveMaxWait: 8, // s: a continuous change stream (training) still saves this often
+  remoteLerp: 12, // 1/s: how fast remote players ease toward their last reported pose
+  remoteFade: 40, // m: remote players further away than this are hidden
+  maxRemotes: 24, // drawn at once (nearest first)
+}
+
 // --- World (metres: +X east, +Z south, +Y up) -------------------------------
 export const GROUND_Y = 0
 export const GROUND_SIZE = 1000 // square grass ground, centred on the origin (the hub floor sits on top)
 export const WORLD_BOUNDS = { minX: -438, maxX: 27.5, minZ: -27.5, maxZ: 27.5 } // backstop behind the wall colliders
 export const SPAWN = { x: 0, y: 0.3, z: 0 }
-export const SPAWN_FACING = Math.PI // yaw the character faces on spawn (PI = toward -Z)
+export const SPAWN_FACING = -Math.PI / 2 // yaw the character faces on spawn (-PI/2 = toward -X, the corridor west; PI = toward -Z)
 
 // --- Hub layout (hub.js / props.js) ------------------------------------------
 // Square plaza walled on three sides; the west wall opens onto the leaf field,
@@ -349,7 +365,7 @@ export const VACUUM_RARITY = {
   Legendary: { text: '#ffc21a', tile: ['#fffbe8', '#ffd98a'], glow: '#ffc21a', sparkles: 26 },
   Mythic: { text: ['#c02aff', '#3a5aff', '#1ad8ff'], tile: ['#f4f0ff', '#a8b0ff'], glow: '#6a7aff', sparkles: 34 },
 }
-export const TWIN_STAND = { x: -6.5, z: 12 } // the Twin Turbine showcase in props.js (E to buy)
+export const TWIN_STAND = { x: -16.5, z: 24 } // the Twin Turbine showcase in props.js (E to buy)
 export const VACUUM_STAND = { x: 2, z: 12 } // matches the 'Vacuums' stand in props.js
 
 // Auras window (auras.js): one aura is equipped at a time and multiplies the total blower
@@ -368,8 +384,33 @@ export const AURA_STAND = { x: 20, z: -14 } // the 'Auras' stand in props.js
 // Looping countdowns, seconds: period and the value shown on load.
 export const TIMERS = {
   luckEvent: { period: 4 * 60, startAt: 3 * 60 + 54 },
-  freeGift: { period: 17 * 60, startAt: 16 * 60 + 42 },
 }
+
+// The top-left gift tile: this vacuum is free once the player has spent `playSeconds` in game (saved).
+export const FREE_GIFT = { vacuum: 'packgun', playSeconds: 50 * 60 }
+// Daily Login window (daily.js, the HUD's Daily tile): one claim per UTC day, days 1-7 in a row, then the
+// streak starts over. Missing a day restarts it at day 1 when `resetOnMiss`. Rewards: `power` = trained
+// power, `cash`, `boosts` = [{ kind: 'power' | 'cash', minutes }] (x2 while active, extend if stacked) and
+// `vacuum` (owned for free, no level needed; equipped if it beats the current one). `look` paints the tile.
+export const DAILY = {
+  resetOnMiss: true,
+  boostMult: 2,
+  rewards: [
+    { rarity: 'Common', boosts: [{ kind: 'power', minutes: 15 }], look: ['#ffffff', '#b4b8c0'] },
+    { rarity: 'Uncommon', cash: 58600, look: ['#2a7bff', '#18c0a0', '#7a2aff'] },
+    { rarity: 'Rare', boosts: [{ kind: 'cash', minutes: 20 }], look: ['#2aa8ff', '#68d4ff'] },
+    { rarity: 'Rare', power: 38, look: ['#2aa8ff', '#7ae0ff'] },
+    { rarity: 'Epic', boosts: [{ kind: 'power', minutes: 30 }], cash: 117000, look: ['#c02aff', '#7a1ae0'] },
+    { rarity: 'Legendary', power: 76, boosts: [{ kind: 'cash', minutes: 30 }], look: ['#ffc21a', '#ff9a14'] },
+    { rarity: 'Mythic', vacuum: 'twin', look: ['#ff6a2a', '#e8283a'] },
+  ],
+}
+// New-player tutorial (tutorial.js; the step is saved with the account by net.js, and the backend's
+// constants.ts TUTORIAL_DONE_STEP must equal `steps`). 0 hold click until `clickPower`, 1 stand on the x1.5
+// training pile (`pad`) until `power`, 2 blow leaves in Zone 1 until loot appears, 3 collect loot until the
+// Bag is worth enough for `vacuum`, 4 go to the Sell Loot stall, 5 press Sell All, 6 close the window,
+// 7 go to the Vacuums stall, 8 buy `vacuum`, 9 done.
+export const TUTORIAL = { steps: 9, clickPower: 5, power: 30, pad: 1.5, vacuum: 'suburban', completeMs: 3500 }
 export const FONT_FAMILY = 'Fredoka'
 
 export const MATERIAL_PBR = {

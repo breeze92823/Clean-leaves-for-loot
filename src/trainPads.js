@@ -10,6 +10,7 @@ const SLAB_TOP = 0.18
 let pads = []
 let noticed = null
 export const setPads = (list) => (pads = list)
+export const padWithMult = (mult) => pads.find((p) => p.mult === mult) ?? null
 
 // Pad whose slab the player stands on, else null.
 export function padAt() {

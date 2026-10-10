@@ -30,13 +30,13 @@ import {
   SRGBColorSpace,
 } from 'three'
 import { addCollider } from './colliders.js'
-import { HUB_COLORS as C, LEAVES, TIMERS, VACUUMS, SELL_STAND, AURA_STAND } from './config.js'
+import { HUB_COLORS as C, LEAVES, VACUUMS, SELL_STAND, AURA_STAND } from './config.js'
 import { RARITY, zoneTier } from './data/loot.js'
 import { drawText, loadIcon, panel, textLabel } from './labels.js'
 import { mesh, studMat, worldBox } from './hub.js'
 import { plankTexture, stripeTexture, stripeTextureV } from './textures.js'
 import { shortMoney, state } from './state.js'
-import { mmss, remaining } from './timers.js'
+import { net, onLeaderboard } from './net.js'
 import { createTrainingPile } from './trainingPile.js'
 
 const std = (color, extra = {}) => new MeshStandardMaterial({ color, roughness: 0.8, ...extra })
@@ -149,51 +149,135 @@ function stand(parent, { x, z, y = 0, rot, awning, title, titleFill, titleStroke
 
 // --- Leaderboards ------------------------------------------------------------------
 
-const BOARD_NAMES = {
-  power: ['LeafLord', 'RakeQueen', 'PileHopper', 'Mapleton', 'GustyGus', 'Oakley_7', 'Breezy', 'AcornAce', 'Birchy', 'Fernando'],
-  rebirths: ['RakeQueen', 'Mapleton', 'TwigTwister', 'Oakley_7', 'LeafLord', 'AcornAce', 'Sprout22', 'Birchy', 'PineappleP', 'Fernando'],
-  leaves: ['RakeQueen', 'Sprout22', 'LeafLord', 'Birchy', 'TwigTwister', 'Fernando', 'GustyGus', 'Breezy', 'Mapleton', 'PileHopper'],
-}
-const BOARD_VALUES = {
-  power: ['1.24Td', '1.15Td', '512Dd', '498Dd', '353Dd', '315Dd', '282Dd', '240Dd', '211Dd', '192Dd'],
-  rebirths: ['56', '45', '42', '41', '41', '40', '40', '40', '40', '40'],
-  leaves: ['19.8Td', '13.5Td', '5.21Td', '4.11Td', '3.88Td', '3.66Td', '2.7Td', '2.57Td', '2.5Td', '2.46Td'],
-}
-
 function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valueColor) {
   const g = placed(parent, x, 0, z, rot)
   const wood = std(C.boardWood)
   for (const sx of [-2.0, 2.0]) g.add(mesh(new BoxGeometry(0.4, 2, 0.4), wood, sx, 1, 0))
   g.add(mesh(new BoxGeometry(4.8, 5.6, 0.4), wood, 0, 4.6, 0))
-  const names = BOARD_NAMES[key]
-  const values = BOARD_VALUES[key]
+  // Empty until the server's leaderboard arrives (net.js); then the live top 10.
+  let rows = []
   const board = panel(
     512,
     600,
     (ctx, w, h) => {
       ctx.fillStyle = C.boardPanel
       ctx.fillRect(0, 0, w, h)
-      for (let i = 0; i < names.length; i++) {
+      for (let i = 0; i < rows.length; i++) {
         ctx.fillStyle = 'rgba(0,0,0,0.12)'
         ctx.fillRect(0, 86 + i * 50 + 22, w, 4)
       }
       drawText(ctx, 'Player', 140, 34, { px: 30, fill: '#62b4ff', strokeW: 3, shadow: false })
       drawText(ctx, valueHeader, 400, 34, { px: 30, fill: valueColor, strokeW: 3, shadow: false })
       const rankFill = ['#ffd84a', '#d8e2ee', '#e89a5a']
-      names.forEach((n, i) => {
+      rows.forEach((r, i) => {
         const y = 86 + i * 50
-        drawText(ctx, `#${i + 1} @${n}`, 40, y, { px: 30, fill: rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
-        drawText(ctx, values[i], 400, y, { px: 30, fill: '#ffffff', strokeW: 3, shadow: false })
+        const name = r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name
+        drawText(ctx, `#${i + 1} @${name}`, 40, y, { px: 30, fill: r.me ? '#7aff4a' : rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
+        drawText(ctx, r.value, 400, y, { px: 30, fill: '#ffffff', strokeW: 3, shadow: false })
       })
     },
     { height: 5.0, width: 4.25 },
   )
+  onLeaderboard((boards) => {
+    const live = boards[key]
+    rows = (live ?? []).map((r) => ({ name: r.name, value: shortMoney(r.value), me: r.id === net.sessionId }))
+    board.repaint()
+  })
   board.object.position.set(0, 4.6, 0.21)
   g.add(board.object)
   const label = textLabel(title, { height: title.length > 8 ? 1.0 : 1.4, px: 100, fill: titleFill, billboard: false })
   label.object.position.set(0, 8.2, 0.1)
   g.add(label.object)
   addCollider(x, z, 4.8, 0.6, 7.4, rot)
+}
+
+// --- Controls board ---------------------------------------------------------------
+
+// Keycap rows painted on the board: [label, keys[]] (strings in `keys` are drawn as caps).
+const CONTROL_ROWS = [
+  ['Move', ['W', 'A', 'S', 'D']],
+  ['Jump', ['SPACE']],
+  ['Blow Leaves', ['F', 'or', 'CLICK']],
+  ['Look', ['MOUSE']],
+  ['Zoom', ['WHEEL']],
+  ['Interact', ['E']],
+  ['Hotbar', ['1', '2', '3']],
+  ['Cursor', ['ESC', 'CLICK']],
+]
+
+const BOARD_SCALE = 2 // the controls board is drawn at double the leaderboard size
+
+function controlsBoard(parent, x, z, rot) {
+  const g = placed(parent, x, 0, z, rot)
+  g.scale.setScalar(BOARD_SCALE)
+  const wood = std(C.boardWood)
+  for (const sx of [-2.0, 2.0]) g.add(mesh(new BoxGeometry(0.4, 2, 0.4), wood, sx, 1, 0))
+  g.add(mesh(new BoxGeometry(4.8, 5.6, 0.4), wood, 0, 4.6, 0))
+  const board = panel(
+    512,
+    600,
+    (ctx, w, h) => {
+      ctx.fillStyle = C.boardPanel
+      ctx.fillRect(0, 0, w, h)
+      CONTROL_ROWS.forEach(([name, keys], i) => {
+        const y = 40 + i * 70
+        if (i % 2 === 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.12)'
+          ctx.fillRect(0, y - 32, w, 64)
+        }
+        drawText(ctx, name, 24, y, { px: 30, fill: '#ffe46a', strokeW: 3, shadow: false, align: 'left' })
+        // Keycaps right-aligned.
+        const caps = keys.map((k) => ({ k, w: k === 'or' ? 34 : Math.max(44, k.length * 18 + 24) }))
+        let cx = w - 20 - caps.reduce((a, c) => a + c.w + 8, -8)
+        for (const c of caps) {
+          if (c.k === 'or') drawText(ctx, 'or', cx + c.w / 2, y, { px: 24, fill: '#ffffff', strokeW: 2, shadow: false })
+          else {
+            ctx.fillStyle = '#121212'
+            ctx.beginPath()
+            ctx.roundRect(cx, y - 24, c.w, 48, 9)
+            ctx.fill()
+            ctx.fillStyle = '#f2f2f2'
+            ctx.beginPath()
+            ctx.roundRect(cx + 3, y - 21, c.w - 6, 38, 7)
+            ctx.fill()
+            drawText(ctx, c.k, cx + c.w / 2, y - 2, { px: c.k.length > 3 ? 22 : 28, fill: '#121212', stroke: null, shadow: false })
+          }
+          cx += c.w + 8
+        }
+      })
+    },
+    { height: 5.0, width: 4.25 },
+  )
+  board.object.position.set(0, 4.6, 0.21)
+  g.add(board.object)
+  const label = textLabel('Controls', { height: 1.4, px: 100, fill: ['#ffffff', '#cfe6ff'], stroke: '#2a3a5a', billboard: false })
+  label.object.position.set(0, 8.2, 0.1)
+  g.add(label.object)
+  addCollider(x, z, 4.8 * BOARD_SCALE, 0.6 * BOARD_SCALE, 7.4 * BOARD_SCALE, rot)
+
+  // Attention highlight shown for a few seconds once the controls guide is finished: a pulsing
+  // glow slab behind the panel and a bobbing arrow above it.
+  const glow = mesh(new BoxGeometry(5.6, 6.4, 0.2), new MeshBasicMaterial({ color: '#ffe46a', transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending }), 0, 4.6, -0.05)
+  const arrow = mesh(new ConeGeometry(0.7, 1.4, 4), new MeshBasicMaterial({ color: '#ffe46a' }), 0, 10.4, 0.1)
+  arrow.rotation.x = Math.PI // point down at the sign
+  glow.visible = arrow.visible = false
+  g.add(glow, arrow)
+  let left = 0
+  return {
+    show(seconds = 5) {
+      left = seconds
+    },
+    update(dt, t) {
+      const on = left > 0
+      if (on) left -= dt
+      glow.visible = arrow.visible = on
+      if (!on) return
+      const fade = Math.min(1, left) // ease out over the last second
+      glow.material.opacity = (0.35 + Math.sin(t * 8) * 0.2) * fade
+      arrow.position.y = 10.4 + Math.sin(t * 6) * 0.35
+      arrow.scale.setScalar(fade)
+    },
+  }
 }
 
 // --- Worlds portal --------------------------------------------------------------
@@ -697,6 +781,10 @@ export function buildProps(scene) {
   leaderboard(root, 4.5, -24, 0, 'rebirths', 'Rebirths', ['#ff8a8a', '#e2222a'], 'Rebirths', '#ff5a5a')
   leaderboard(root, 14, -23, -0.2, 'leaves', 'Leaves Cleaned', ['#c4ff7a', '#4cc81a'], 'Leaves', '#7aff4a')
 
+  // Beside the west opening (left as you walk out to the field): the controls reference.
+  const controls = controlsBoard(root, -23, 19.5, facing(-23, 19.5, 0, 4))
+  window.addEventListener('controls-done', () => controls.show(5)) // hud.js, after the guide is completed
+
   // East: Auras, arcade, Upgrades.
   npcs.push(stand(root, { x: AURA_STAND.x, z: AURA_STAND.z, rot: facing(AURA_STAND.x, AURA_STAND.z, 0, 4), awning: ['#ff3fd0', '#f4f4f4'], title: 'Auras', titleFill: ['#ffb4f0', '#ff4fc8', '#d61f9e'], npcLook: 'girl' }))
   arcade(root, 25, 3, -Math.PI / 2)
@@ -825,22 +913,12 @@ export function buildProps(scene) {
     sign.object.rotation.y = Math.PI / 2
     root.add(sign.object)
   }
-  const luckText = (s) => [{ text: `☘ Luck event in ${mmss(s)}`, px: 72, fill: ['#b8ff8a', '#4ad21a'], stroke: '#0a3a0a' }]
-  const luckTimer = textLabel(luckText(remaining(TIMERS.luckEvent.period, TIMERS.luckEvent.startAt)), {
-    height: 1.6,
-    billboard: false,
-    doubleSided: true,
-  })
-  luckTimer.object.position.set(-44, 9.6, 0)
-  luckTimer.object.rotation.y = Math.PI / 2
-  root.add(luckTimer.object)
-
-  let lastSecond = -1
   return {
     piles,
     pads,
     update(dt, t) {
       for (const pile of piles) pile.update(dt)
+      controls.update(dt, t)
       for (const fan of vac.userData.fans) fan.rotation.z += dt * 40
       vac.userData.fx.update(t)
       if (state.level !== twinLevel) {
@@ -857,12 +935,6 @@ export function buildProps(scene) {
         l.rotation.x = Math.sin(t * 1.6 + i) * 0.08
         r.rotation.x = -Math.sin(t * 1.6 + i) * 0.08
       })
-      const left = remaining(TIMERS.luckEvent.period, TIMERS.luckEvent.startAt)
-      const sec = Math.ceil(left)
-      if (sec !== lastSecond) {
-        lastSecond = sec
-        luckTimer.setLines(luckText(left))
-      }
     },
   }
 }

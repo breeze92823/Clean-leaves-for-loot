@@ -26,10 +26,9 @@
 .a-tc { left: 50%; top: 0; transform-origin: 50% 0; transform: translateX(-50%) scale(var(--s)); }
 .a-hint { left: 50%; bottom: 130px; transform-origin: 50% 100%; transform: translateX(-50%) scale(var(--s)); pointer-events: none; }
 .a-tr { right: 0; top: 0; transform-origin: 100% 0; transform: scale(var(--s)); }
-.a-bc { left: 50%; bottom: 0; transform-origin: 50% 100%; transform: translateX(-50%) scale(var(--s)); }
 
 .pressable { transition: transform 0.08s ease; }
-.pressable:hover { transform: scale(1.06); }
+@media (hover: hover) { .pressable:hover { transform: scale(1.06); } }
 .pressable:active { transform: scale(0.94); }
 
 /* --- top-left system buttons ------------------------------------------- */
@@ -44,8 +43,16 @@
 /* free gift */
 .gift { position: absolute; left: 318px; top: 72px; width: 200px; text-align: center; }
 .gift .t { font-size: 22px; letter-spacing: 0.5px; -webkit-text-stroke-width: 4px; }
-.gift .gun { width: 190px; height: 118px; margin-top: -6px; filter: drop-shadow(0 0 10px rgba(80, 220, 255, 0.8)); animation: gunbob 2.4s ease-in-out infinite; }
-.gift .op { position: absolute; right: 2px; top: 46px; font-size: 30px; color: #ff3a6a; -webkit-text-stroke: 5px #1a0a2a; paint-order: stroke fill; transform: rotate(-8deg); }
+.gift .gun { width: 190px; height: 118px; margin-top: -6px; }
+.gift[hidden] { display: none; }
+.gift .gun { position: relative; }
+.gift .gun canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gift .gname { font-size: 17px; -webkit-text-stroke-width: 3px; }
+.gift .gpow { font-size: 20px; color: #7aeaff; -webkit-text-stroke-width: 4px; }
+.gift .gprice { display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 22px; -webkit-text-stroke-width: 4px; }
+.gift .gprice s { color: #ff8a8a; text-decoration: line-through 4px #ff2a4a; }
+.gift .gprice b { color: #7aff5a; font-weight: inherit; }
+.gift.ready .t { color: #7aff5a; }
 @keyframes gunbob { 50% { transform: translateY(-5px) rotate(-2deg); } }
 
 /* --- left menu ----------------------------------------------------------- */
@@ -110,10 +117,6 @@
 #hud:not(.in-field) .trail { opacity: 0; visibility: hidden; transform: translateX(-120px); pointer-events: none; transition: opacity 0.3s ease, transform 0.35s ease, visibility 0s 0.35s; }
 .level-icon { position: absolute; left: -6px; top: -8px; width: 66px; height: 66px; z-index: 1; filter: drop-shadow(0 2px 0 #0a2a40); }
 .power { margin-top: 6px; font-size: 32px; padding: 0 60px; background: linear-gradient(90deg, transparent, rgba(30, 40, 60, 0.35), transparent); }
-.luck { margin-top: 6px; width: 340px; height: 44px; border-radius: 10px; border: 3px solid #1a3a0a; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 27px;
-  background: linear-gradient(#7aff6a, #34c838); box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.12); }
-.luck i { width: 26px; height: 26px; display: block; color: #1a6a1a; }
-.luck .w1 { color: #3aff4a; } .luck .w2 { color: #ff6a2a; } .luck .w3 { color: #c45aff; } .luck .w4 { color: #ff4ac8; }
 
 /* --- top-right auto click --------------------------------------------------- */
 .auto { position: absolute; right: 382px; top: 20px; width: 166px; text-align: center; }
@@ -138,11 +141,6 @@
 .spin .price { position: absolute; top: -2px; right: -24px; font-size: 17px; color: #4aff4a; display: flex; align-items: center; gap: 1px; }
 .spin .price i { position: static; width: 15px; height: 15px; color: #3ae84a; }
 
-/* --- hotbar ---------------------------------------------------------------- */
-.hotbar { position: absolute; left: -173px; bottom: 6px; display: flex; gap: 6px; }
-.slot { width: 110px; height: 110px; background: rgba(30, 30, 34, 0.65); border: 3px solid #121212; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; }
-.slot i { width: 84px; height: 84px; display: block; }
-.slot.active { box-shadow: inset 0 0 0 3px #fff; background: rgba(60, 60, 70, 0.7); }
 
 /* --- controls guide ------------------------------------------------------- */
 .help { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 40px; width: 1100px; padding: 26px 36px 18px; background: rgba(15, 18, 28, 0.62); border: 5px solid #121212; border-radius: 26px; transition: opacity 0.5s, transform 0.5s; animation: pop 0.3s ease-out; }
@@ -201,7 +199,7 @@ body.win-open > canvas { filter: blur(6px); }
 .prompt kbd { background: #fff; color: #121212; -webkit-text-stroke: 0; text-shadow: none; border: 3px solid #121212; border-radius: 8px; min-width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 26px; box-shadow: 0 3px 0 #121212; }
 
 /* --- Upgrades window ----------------------------------------------------------- */
-.a-cc { left: 50%; top: 50%; transform-origin: 50% 50%; transform: translate(-50%, -50%) scale(var(--s)); }
+.a-cc { left: 50%; top: 50%; transform-origin: 50% 50%; transform: translate(-50%, -50%) scale(var(--sw, var(--s))); }
 .upg {
   --lmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cpath d='M7 7v9h9' fill='none' stroke='white' stroke-opacity='.3' stroke-width='2.5'/%3E%3C/svg%3E");
   position: absolute; left: -369px; top: -320px; width: 738px; display: none; flex-direction: column; align-items: center; pointer-events: auto;
@@ -388,3 +386,88 @@ body.win-open > canvas { filter: blur(6px); }
 .cfg-toggle .ubtn { width: 150px; height: 70px; display: flex; align-items: center; justify-content: center; font-size: 46px; border: 4px solid #121212 !important; background: linear-gradient(#cfcfcf, #8a8a8a) !important; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35), inset 0 -6px 0 rgba(0, 0, 0, 0.15); }
 .cfg-toggle .ubtn.sel[data-vfx="on"] { background: linear-gradient(#a8ff3a, #4fdc1a) !important; }
 .cfg-toggle .ubtn.sel[data-vfx="off"] { background: linear-gradient(#ff3a5a, #d8102a) !important; }
+
+/* --- Daily Login window (shares the Upgrades frame) + active boost pills ------------------ */
+.dly { left: -400px; top: -250px; width: 800px; }
+.dly .upg-head { width: 800px; background: var(--lmark), linear-gradient(#5cc8ff, #2a9cf4 55%, #1a82e0); }
+.dly-cal { position: absolute; left: 18px; top: -14px; width: 84px; height: 84px; display: block; filter: drop-shadow(0 3px 0 #0a1a3a); }
+.dly .upg-head h2 { margin-left: 112px; }
+.dly .upg-body { width: 760px; height: auto; padding: 14px 16px 6px; background: var(--lmark), #3a3a3f; }
+.dly-grid { display: grid; grid-template-columns: repeat(3, 1fr) 1.02fr; grid-template-rows: 1fr 1fr; gap: 10px; height: 372px; }
+.dly-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 6px 4px 6px; overflow: hidden;
+  background: linear-gradient(160deg, var(--c1), var(--c2) 60%, var(--c3)); border: 4px solid #12161c; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.4);
+}
+.dly-tile.last { grid-column: 4; grid-row: 1 / span 2; }
+.dly-day { font-size: 32px; line-height: 1; }
+.dly-rar { font-size: 20px; line-height: 1; margin-top: -2px; }
+.dly-ico { position: relative; flex: 1; width: 92px; max-height: 92px; margin: 2px 0; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, #ff8ad8, #e8288a 70%); border: 4px solid rgba(255, 255, 255, 0.7); box-shadow: 0 0 10px rgba(255, 60, 160, 0.6); }
+.dly-ico > svg { width: 58px; height: 58px; }
+.dly-tile.last .dly-ico { width: 150px; height: 150px; max-height: none; flex: none; border-radius: 12px; background: radial-gradient(circle, #fff6ea, #ffb070 100%); border-color: rgba(255, 255, 255, 0.8); box-shadow: none; overflow: hidden; }
+.dly-ico canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#hud .dly-ico.live > svg { display: none; }
+.dly-txt { font-size: 22px; line-height: 1.05; text-align: center; -webkit-text-stroke-width: 4px; padding: 0 2px; }
+.dly-txt.big { font-size: 36px; line-height: 1; }
+.dly-claim, .dly-done { position: absolute; inset: 0; display: none; place-items: center; font-size: 28px; }
+.dly-claim { color: #7aff3a; -webkit-text-stroke-width: 6px; }
+.dly-done { font-size: 64px; color: #7aff5a; background: rgba(0, 0, 0, 0.5); border-radius: inherit; -webkit-text-stroke: 3px #121212; }
+.dly-tile.current { animation: dlypulse 1.1s ease-in-out infinite; box-shadow: inset 0 0 0 3px #fff, 0 0 16px 4px rgba(255, 255, 120, 0.85); z-index: 1; }
+.dly-tile.current .dly-claim { display: grid; }
+.dly-tile.claimed { filter: saturate(0.5) brightness(0.8); }
+.dly-tile.claimed .dly-done { display: grid; }
+@keyframes dlypulse { 50% { transform: scale(1.04); } }
+.dly-foot { margin: 6px 0 2px; text-align: center; font-size: 34px; line-height: 1.1; }
+
+.boosts { position: absolute; right: 20px; top: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.boost-pill { display: none; padding: 4px 16px 6px; font-size: 26px; line-height: 1.1; border: 4px solid #121212; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35); -webkit-text-stroke: 4px #121212; paint-order: stroke fill; }
+.boost-pill.power { background: linear-gradient(#f4ff7a, #ffc21a); }
+.boost-pill.cash { background: linear-gradient(#b8ff7a, #3ad24a); }
+
+/* controls guide: highlight the control to try next, light up keys as they are pressed */
+.help-col.active:not(.done) h3 { color: #ffe46a; }
+.help-col.active:not(.done) kbd:not(.hit) { animation: keyglow 1s ease-in-out infinite; border-color: #ffb400; }
+.help kbd.hit { background: linear-gradient(#b8ffc9, #5fe085); transform: translateY(4px); border-bottom-width: 5px; }
+.help-col:not(.active):not(.done):not([data-optional]) { opacity: 0.6; }
+@keyframes keyglow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 220, 90, 0); transform: translateY(0); } 50% { box-shadow: 0 0 22px 6px rgba(255, 220, 90, 0.95); transform: translateY(-5px); } }
+
+/* --- Compact layout: phones and small windows (#hud.mob, set in hud.js) -------------------
+   --s is derived from a 1250x620 space here (bigger text than the desktop 1920x991 layout);
+   windows scale by --sw to fit the short screen and centre themselves whatever their height. */
+#hud.mob { top: env(safe-area-inset-top); right: env(safe-area-inset-right); bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left); }
+#hud.mob .a-hint { display: none; }
+#hud.mob .menu { top: 14px; left: 10px; }
+#hud.mob .gift { left: 10px; top: 216px; width: 200px; transform: scale(0.7); transform-origin: 0 0; }
+#hud.mob .gift .gprice { display: none; }
+#hud.mob .trail { left: 170px; top: 90px; height: 260px; }
+#hud.mob .center { top: 12px; }
+#hud.mob .boosts { right: 76px; top: 14px; }
+#hud.mob .stats { left: 8px; bottom: 14px; }
+#hud.mob .home-btn { top: 10px; }
+#hud.mob .a-tut { top: 128px; }
+#hud.mob .upg { left: 0 !important; top: 0 !important; translate: -50% -50%; }
+#hud.mob .upg-body { height: 420px; }
+#hud.mob .idx .upg-body, #hud.mob .reb .upg-body, #hud.mob .cfg .upg-body, #hud.mob .dly .upg-body { height: auto; }
+#hud.mob .idx-grid { height: 250px; }
+#hud.mob .dly-grid { height: 320px; }
+#hud.mob .reb .upg-body { padding: 12px 20px 12px; gap: 12px; }
+#hud.mob .reb-cell { height: 60px; }
+#hud.mob .reb-btn { height: 62px; }
+#hud.mob .cfg-row { height: 88px; }
+#hud.mob .upg-x { width: 64px; height: 64px; top: 0; }
+#hud.mob .upg-list { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#hud.mob .idx-grid { touch-action: pan-y; overscroll-behavior: contain; }
+#hud.mob .upg-head h2 { font-size: 48px; }
+.toast { max-width: 90vw; }
+html.touch .levelup { top: 92px; }
+html.touch .levelup-t { font-size: 44px; -webkit-text-stroke-width: 7px; }
+html.touch .idxup { top: 150px; }
+html.touch .idxup .levelup-t { font-size: 40px; }
+html.touch .levelup-s { font-size: 22px; }
+html.touch .toast { font-size: 22px; top: 18%; }
+html.touch .modal { padding: 14px 18px 20px; }
+html.touch .modal h2 { font-size: 34px; margin-bottom: 10px; }
+html.touch .modal .x { width: 48px; height: 48px; }
+
+/* Look step while the mouse is free: the highlight pauses until the world is clicked */
+.help-col.free.active:not(.done) kbd:not(.hit) { animation: none; border-color: #121212; opacity: 0.6; }
+.help-col.free.active:not(.done) .cap { color: #ffe46a; }

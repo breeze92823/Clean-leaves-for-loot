@@ -3,23 +3,25 @@
 // Plain DOM over the canvas. Menu tiles open a placeholder panel; purchase
 // buttons show a toast (no store yet).
 import './hud.css'
-import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, TIMERS, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
+import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, FREE_GIFT, DAILY, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
 import { player, respawn } from './player.js'
 import { ICONS, auraIcon, vacuumIcon } from './icons.js'
-import { mmss, remaining } from './timers.js'
+import { mmss } from './timers.js'
 import { ITEM_CATALOG, ITEM_INFO, RARITY, RARITY_ROW_BG } from './data/loot.js'
 import { closeIndex, indexProgress, openIndex } from './index.js'
 import { createIndexViews } from './indexView.js'
 import { playerScreen } from './screenPos.js'
-import { state, subscribe, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier } from './state.js'
+import { addPlaySeconds, state, subscribe, notify, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier, boostActive, boostLeft } from './state.js'
 import { closeRebirth, openRebirth, rebirthLevel, rebirthProgress, tryRebirth } from './rebirth.js'
 import { bagValue, closeSell, groupBag, isLocked, payout, sellAll, sellItem, toggleLock, unlockedBag } from './sell.js'
 import { buyUpgrade, closeUpgrades, upgradeCost } from './upgrades.js'
-import { closeVacuums, pickVacuum } from './vacuums.js'
+import { claimGift, closeVacuums, pickVacuum } from './vacuums.js'
 import { createVacuumViews } from './vacuumView.js'
 import { settings, setSettings, subscribeSettings, sfx } from './settings.js'
 import { closeAuras, pickAura } from './auras.js'
 import { createAuraViews } from './auraView.js'
+import { claimDaily, closeDaily, dailyStatus, openDaily } from './daily.js'
+import { isCompact } from './device.js'
 
 const REF_W = 1920
 const REF_H = 991
@@ -47,6 +49,25 @@ function rarityLabel(rarity) {
   return [...rarity].map((ch, i) => `<span style="color:${c[Math.min(c.length - 1, Math.floor((i / rarity.length) * c.length))]}">${ch}</span>`).join('')
 }
 
+// 3725 s -> 1:02:05
+const hms = (sec) => {
+  const t = Math.max(0, Math.ceil(sec))
+  return `${Math.floor(t / 3600)}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
+}
+
+// Daily Login tile text, e.g. "76 Power + 2x Cash 30m" or "$58.6K".
+function dailyLabel(r) {
+  const kind = { power: 'Power', cash: 'Cash' }
+  return [
+    r.power && `${short(r.power)} Power`,
+    ...(r.boosts ?? []).map((b) => `${DAILY.boostMult}x ${kind[b.kind]} ${b.minutes}m`),
+    r.cash && `$${short(r.cash)}`,
+  ]
+    .filter(Boolean)
+    .join(' + ')
+}
+const dailyIcon = (r) => (r.vacuum ? '<canvas></canvas>' : r.power || (r.boosts ?? []).some((b) => b.kind === 'power') ? ICONS.tornado : ICONS.cash)
+
 function template() {
   return `
   <div class="anchor a-tl">
@@ -61,16 +82,17 @@ function template() {
       </div>
     </div>
     <button class="gift pressable" data-act="gift">
-      <div class="t o" data-bind="gift">FREE IN 16:42</div>
-      <div class="gun">${ICONS.gun}</div>
-      <div class="op">OP!</div>
+      <div class="t o" data-bind="gift"></div>
+      <div class="gun"><canvas></canvas></div>
+      <div class="gname o-thin">${VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).name}</div>
+      <div class="gpow o">${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).power)} Power</div>
+      <div class="gprice o"><s>$${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).cost)}</s><b>FREE</b></div>
     </button>
     <div class="menu">
-      <button class="tile wide pressable" data-panel="Quests">${icon('pencil')}<span class="o">Quests</span></button>
       <button class="tile pressable" data-act="openIndex">${icon('book')}<span class="o">Index</span></button>
       <button class="tile pressable" data-panel="Config">${icon('gear')}<span class="o">Config</span></button>
       <button class="tile pressable" data-act="openRebirth">${icon('rebirth')}<span class="o">Rebirth</span><b class="pct o-thin" data-bind="rebirth"></b></button>
-      <button class="tile pressable" data-panel="Daily">${icon('calendar')}<span class="o">Daily</span><b class="alert">!</b></button>
+      <button class="tile pressable" data-act="openDaily">${icon('calendar')}<span class="o">Daily</span><b class="alert" data-bind="dailyAlert">!</b></button>
     </div>
   </div>
 
@@ -95,18 +117,13 @@ function template() {
         </div>
       </div>
       <div class="power o" data-bind="power"></div>
-      <div class="luck">${icon('clover')}<span class="o-thin"><span class="w1">Luck</span> <span class="w2">event</span> <span class="w3">in</span> <span class="w4" data-bind="luck"></span></span></div>
     </div>
   </div>
 
   <div class="anchor a-tr">
-  </div>
-
-  <div class="anchor a-bc">
-    <div class="hotbar">
-      <button class="slot active" data-slot="0">${icon('grid')}</button>
-      <button class="slot" data-slot="1">${icon('key')}</button>
-      <button class="slot" data-slot="2">${icon('vacuumTool')}</button>
+    <div class="boosts">
+      <div class="boost-pill power" data-bind="boostPower"></div>
+      <div class="boost-pill cash" data-bind="boostCash"></div>
     </div>
   </div>
 
@@ -115,38 +132,38 @@ function template() {
       <div class="help-col" data-task="move">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Move</h3>
-        <div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+        <div class="keys"><kbd data-code="KeyW,ArrowUp">W</kbd><kbd data-code="KeyA,ArrowLeft">A</kbd><kbd data-code="KeyS,ArrowDown">S</kbd><kbd data-code="KeyD,ArrowRight">D</kbd></div>
         <div class="cap o-thin">Press any one</div>
       </div>
       <div class="help-col" data-task="jump">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Jump</h3>
-        <div class="keys"><kbd class="wide">SPACE</kbd></div>
+        <div class="keys"><kbd class="wide" data-code="Space">SPACE</kbd></div>
         <div class="cap o-thin">Press it</div>
       </div>
       <div class="help-col" data-task="blow">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Blow Leaves</h3>
-        <div class="keys"><kbd>F</kbd><span class="or o-thin">or</span><kbd class="wide">CLICK</kbd></div>
+        <div class="keys"><kbd data-code="KeyF">F</kbd><span class="or o-thin">or</span><kbd class="wide" data-code="Click">CLICK</kbd></div>
         <div class="cap o-thin">Try it</div>
       </div>
       <div class="help-col" data-task="look">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Look</h3>
-        <div class="keys"><kbd class="wide">MOUSE</kbd></div>
+        <div class="keys"><kbd class="wide" data-code="Mouse">MOUSE</kbd></div>
         <div class="cap o-thin">Move the mouse</div>
       </div>
       <div class="help-col" data-task="zoom">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Zoom</h3>
-        <div class="keys"><kbd class="wide">WHEEL</kbd></div>
+        <div class="keys"><kbd class="wide" data-code="Wheel">WHEEL</kbd></div>
         <div class="cap o-thin">Scroll once</div>
       </div>
-      <div class="help-col" data-optional>
-        
-        <h3 class="o">Menu</h3>
-        <div class="keys"><kbd class="wide">ESC</kbd></div>
-        <div class="cap o-thin">Free cursor</div>
+      <div class="help-col" data-task="cursor">
+        <div class="chk" aria-hidden="true">&#10003;</div>
+        <h3 class="o">Cursor</h3>
+        <div class="keys"><kbd class="wide" data-code="Cursor">CLICK</kbd></div>
+        <div class="cap o-thin">Click the world</div>
       </div>
       <div class="help-go o" data-bind="helpMsg">Try each control to continue</div>
       <div class="help-skip o-thin">Enter = skip</div>
@@ -310,6 +327,30 @@ function template() {
       </div>
     </div>
   </div>
+  <div class="anchor a-cc">
+    <div class="upg dly">
+      <div class="upg-head">
+        <i class="dly-cal">${ICONS.calendar}</i>
+        <h2 class="o">Daily Login!</h2>
+        <button class="upg-x pressable" data-act="closeDaily"><svg viewBox="0 0 40 40"><path d="M11 11 L29 29 M29 11 L11 29" stroke="#121212" stroke-width="10" stroke-linecap="round"/><path d="M11 11 L29 29 M29 11 L11 29" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="upg-body">
+        <div class="dly-grid">
+          ${DAILY.rewards
+            .map(
+              (r, i) => `<button class="dly-tile pressable${i === DAILY.rewards.length - 1 ? ' last' : ''}" data-day="${i + 1}" style="--c1:${r.look[0]};--c2:${r.look[1]};--c3:${r.look[2] ?? r.look[1]}">
+            <div class="dly-day o">Day ${i + 1}</div>
+            <div class="dly-rar o-thin">${rarityLabel(r.rarity)}</div>
+            <div class="dly-ico">${dailyIcon(r)}<b class="dly-claim o">Claim!</b><b class="dly-done">&#10003;</b></div>
+            <div class="dly-txt o${r.vacuum ? ' big' : ''}">${r.vacuum ? VACUUMS.find((v) => v.id === r.vacuum).name : dailyLabel(r)}</div>
+          </button>`,
+            )
+            .join('')}
+        </div>
+        <div class="dly-foot o" data-bind="dailyFoot"></div>
+      </div>
+    </div>
+  </div>
   <div class="levelup idxup"><div class="levelup-t o">INDEX BOOST!</div><div class="levelup-s o" data-bind="idxUpSub"></div></div>
   <div class="levelup"><div class="levelup-t o">LEVEL UP!</div><div class="levelup-s o" data-bind="levelUpSub"></div></div>
   <div class="modal-back"><div class="modal"><button class="x o-thin">X</button><h2 class="o"></h2><p>Coming soon!</p></div></div>
@@ -325,7 +366,16 @@ export function createHud({ showMenu }) {
   const bind = {}
   root.querySelectorAll('[data-bind]').forEach((el) => (bind[el.dataset.bind] = el))
 
-  const fit = () => root.style.setProperty('--s', Math.min(window.innerWidth / REF_W, window.innerHeight / REF_H))
+  // Desktop lays the HUD out in 1920x991. Phones / small windows use the compact layout (.mob in hud.css):
+  // a smaller reference space so text stays legible, and windows (--sw) scaled to fit the short screen.
+  const fit = () => {
+    const w = window.innerWidth
+    const h = window.innerHeight
+    const mob = isCompact()
+    root.classList.toggle('mob', mob)
+    root.style.setProperty('--s', mob ? Math.min(w / 1250, h / 620) : Math.min(w / REF_W, h / REF_H))
+    root.style.setProperty('--sw', mob ? Math.min(w / 800, h / 560) : Math.min(w / REF_W, h / REF_H))
+  }
   window.addEventListener('resize', fit)
   fit()
 
@@ -376,36 +426,100 @@ export function createHud({ showMenu }) {
     helpDone = true
     help.classList.add('hide')
   }
+  // Hold the guide back until the server says whether this is a new account; saved ones skip it.
+  help.classList.add('hide')
+  const syncHelp = () => {
+    if (helpDone || !state.tutorialReady) return
+    if (state.controlsDone) {
+      helpDone = true
+      return
+    }
+    help.classList.remove('hide')
+  }
+  subscribe(syncHelp)
+  syncHelp()
   const finishHelp = (msg) => {
     if (helpDone) return
     helpDone = true
+    state.controlsDone = true // saved with the account, so it never shows again
+    notify()
     if (msg) helpMsg.textContent = msg
     setTimeout(() => help.classList.add('hide'), msg ? 1300 : 0)
+    if (msg) setTimeout(() => window.dispatchEvent(new Event('controls-done')), 1300) // props.js lights up the Controls board
+  }
+  // Highlight the control being taught: the first unfinished task glows, and each of its keys
+  // lights up (green) once pressed. Each control finishes on first use (any one WASD key is enough).
+  const order = ['move', 'jump', 'blow', 'look', 'zoom', 'cursor']
+  const refreshActive = () => {
+    const cur = order.find((n) => !tasks[n].classList.contains('done'))
+    order.forEach((n) => tasks[n].classList.toggle('active', n === cur))
+    if (cur === 'cursor' && cursorPhase < 0) setCursorPhase(document.pointerLockElement ? 1 : 0) // start from what the mouse is doing now
+  }
+  // Cursor step, read from the live pointer-lock state so it only asks for what comes next:
+  // 0 free -> click to grab it, 1 grabbed -> ESC to free it, 2 freed -> click to take it back.
+  let cursorPhase = -1
+  const CURSOR_STEPS = [
+    ['CLICK', '1/3 - Click the world to grab the mouse'],
+    ['ESC', '2/3 - Press ESC to free your mouse'],
+    ['CLICK', '3/3 - Click the world to get camera control back'],
+  ]
+  const setCursorPhase = (p) => {
+    cursorPhase = p
+    const kbd = tasks.cursor.querySelector('kbd')
+    kbd.textContent = CURSOR_STEPS[p][0]
+    kbd.classList.remove('hit')
+    tasks.cursor.querySelector('.cap').textContent = CURSOR_STEPS[p][1]
+  }
+  const cursorEvent = (ev) => {
+    if (helpDone || !tasks.cursor.classList.contains('active')) return
+    if (cursorPhase === 0 && (ev === 'click' || ev === 'locked')) setCursorPhase(1)
+    else if (cursorPhase === 1 && (ev === 'esc' || ev === 'unlocked')) setCursorPhase(2)
+    else if (cursorPhase === 2 && (ev === 'click' || ev === 'locked')) tick1('cursor')
+  }
+  const hitKey = (name, code) => {
+    const el = tasks[name]
+    if (helpDone || !el || el.classList.contains('done')) return
+    const keys = [...el.querySelectorAll('kbd')]
+    keys.forEach((k) => k.dataset.code.split(',').includes(code) && k.classList.add('hit'))
+    tick1(name)
   }
   const tick1 = (name) => {
     const el = tasks[name]
     if (helpDone || !el || el.classList.contains('done')) return
     el.classList.add('done')
+    el.querySelectorAll('kbd').forEach((k) => k.classList.add('hit'))
+    refreshActive()
     if (Object.values(tasks).every((t) => t.classList.contains('done'))) finishHelp('Great! You are ready!')
   }
+  refreshActive()
   const moveKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
   let lookPx = 0
   window.addEventListener('keydown', (e) => {
-    if (moveKeys.includes(e.code)) tick1('move')
-    else if (e.code === 'Space') tick1('jump')
-    else if (e.code === 'KeyF') tick1('blow')
+    if (moveKeys.includes(e.code)) hitKey('move', e.code)
+    else if (e.code === 'Space') hitKey('jump', e.code)
+    else if (e.code === 'KeyF') hitKey('blow', e.code)
+    else if (e.code === 'Escape') cursorEvent('esc')
     else if (e.code === 'Enter') finishHelp()
   })
-  window.addEventListener('pointerdown', (e) => e.button === 0 && e.target.tagName === 'CANVAS' && tick1('blow'))
+  // Esc while the pointer is locked is swallowed by the browser: it just releases the lock.
+  // Look only turns the camera while the mouse is captured, so say so when it is free (e.g. after ESC).
+  const lookCap = tasks.look.querySelector('.cap')
+  const syncLookCap = () => {
+    lookCap.textContent = document.pointerLockElement ? 'Move the mouse' : 'Click the world, then move the mouse'
+    tasks.look.classList.toggle('free', !document.pointerLockElement)
+  }
+  syncLookCap()
+  document.addEventListener('pointerlockchange', () => {
+    syncLookCap()
+    cursorEvent(document.pointerLockElement ? 'locked' : 'unlocked')
+  })
+  window.addEventListener('pointerdown', (e) => e.button === 0 && e.target.tagName === 'CANVAS' && (hitKey('blow', 'Click'), cursorEvent('click')))
   window.addEventListener('pointermove', (e) => {
     if (!document.pointerLockElement && !(e.buttons & 2)) return
     lookPx += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0)
-    if (lookPx > 250) tick1('look')
+    if (lookPx > 250) hitKey('look', 'Mouse')
   })
-  window.addEventListener('wheel', (e) => e.target.tagName === 'CANVAS' && tick1('zoom'), { passive: true })
-
-  const slots = [...root.querySelectorAll('.slot')]
-  const selectSlot = (i) => slots.forEach((s, k) => s.classList.toggle('active', k === i))
+  window.addEventListener('wheel', (e) => e.target.tagName === 'CANVAS' && hitKey('zoom', 'Wheel'), { passive: true })
 
   root.addEventListener('click', (e) => {
     const el = e.target.closest('button')
@@ -413,13 +527,15 @@ export function createHud({ showMenu }) {
     if (el.dataset.panel === 'Config') openConfig()
     else if (el.dataset.panel) openPanel(el.dataset.panel)
     else if (el.dataset.buy) say(`${el.dataset.buy}: store coming soon!`)
-    else if (el.dataset.slot) selectSlot(+el.dataset.slot)
     else if (el.dataset.lock) toggleLock(el.dataset.lock)
     else if (el.dataset.sell === 'all') sellAll()
     else if (el.dataset.sell) sellItem(el.dataset.sell)
     else if (el.dataset.upgrade) buyUpgrade(el.dataset.upgrade)
     else if (el.dataset.vacuum) pickVacuum(el.dataset.vacuum)
     else if (el.dataset.aura) pickAura(el.dataset.aura)
+    else if (el.dataset.day) dailyTile(+el.dataset.day)
+    else if (el.dataset.act === 'openDaily') openDaily()
+    else if (el.dataset.act === 'closeDaily') closeDaily()
     else if (el.dataset.act === 'openIndex') openIndex()
     else if (el.dataset.act === 'closeIndex') closeIndex()
     else if (el.dataset.act === 'openRebirth') openRebirth()
@@ -433,7 +549,7 @@ export function createHud({ showMenu }) {
     else if (el.dataset.vfx) setSettings({ vfx: el.dataset.vfx === 'on' })
     else if (el.dataset.act === 'portal') showMenu()
     else if (el.dataset.act === 'home') respawn()
-    else if (el.dataset.act === 'gift') say('Your free gift is not ready yet!')
+    else if (el.dataset.act === 'gift') claimGift()
     else if (el.dataset.act === 'chat') say('Chat coming soon!')
   })
   // Keep clicks on the HUD from reaching the game's pointer handlers.
@@ -448,9 +564,8 @@ export function createHud({ showMenu }) {
       closeAuras()
       closeRebirth()
       closeIndex()
+      closeDaily()
     }
-    const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code)
-    if (n >= 0) selectSlot(n)
   })
 
   setToast(say)
@@ -575,6 +690,31 @@ export function createHud({ showMenu }) {
     bind.idxFill.style.width = `${(done / step) * 100}%`
     bind.idxBar.textContent = `${done}/${step} Collected`
   }
+  // Daily Login: the tile for the day that is up claims it; the others explain why not.
+  const dlyPanel = root.querySelector('.dly')
+  const dlyTiles = [...dlyPanel.querySelectorAll('.dly-tile')]
+  const dlyViews = createVacuumViews(
+    DAILY.rewards.flatMap((r, i) => (r.vacuum ? [{ id: r.vacuum, rarity: r.rarity, canvas: dlyTiles[i].querySelector('canvas') }] : [])),
+    null,
+  )
+  function dailyTile(day) {
+    const { claimable, next, claimed } = dailyStatus()
+    if (claimable && day === next) claimDaily()
+    else if (day <= claimed) say('Already claimed!')
+    else say(`Day ${day} unlocks after day ${day - 1}!`)
+  }
+  function renderDaily() {
+    const { claimable, next, claimed, msLeft } = dailyStatus()
+    bind.dailyAlert.style.display = claimable ? '' : 'none'
+    dlyPanel.classList.toggle('open', s.dailyOpen)
+    dlyViews.setActive(s.dailyOpen)
+    if (!s.dailyOpen) return
+    dlyTiles.forEach((el, i) => {
+      el.classList.toggle('claimed', i < claimed)
+      el.classList.toggle('current', claimable && i + 1 === next)
+    })
+    bind.dailyFoot.textContent = claimable ? 'Your reward is ready!' : `Next reward in ${hms(msLeft / 1000)}`
+  }
   const rebPanel = root.querySelector('.reb')
   const mult = (x) => `x${+x.toFixed(2)}`
   function renderRebirth() {
@@ -590,7 +730,7 @@ export function createHud({ showMenu }) {
     bind.rebBar.textContent = `Lvl. ${Math.min(s.level, need)} / ${need}`
   }
   // "LEVEL UP!" banner: replays whenever the level rises (a rebirth reset does not trigger it).
-  const levelUp = root.querySelector('.levelup')
+  const levelUp = root.querySelector('.levelup:not(.idxup)')
   const { inMs, holdMs, outMs } = LEVEL_UP_POPUP
   const totalMs = inMs + holdMs + outMs
   let lastLevel = s.level
@@ -669,6 +809,7 @@ export function createHud({ showMenu }) {
   function render() {
     renderIndexBoost()
     renderLevelUp()
+    renderDaily()
     renderRebirth()
     renderIndex()
     renderAuras()
@@ -685,16 +826,57 @@ export function createHud({ showMenu }) {
     bind.cash.textContent = `$${short(s.cash)}`
     bind.rebirth.textContent = `${Math.floor(rebirthProgress() * 100)}%`
   }
+  const giftBtn = root.querySelector('.gift')
+  const giftViews = createVacuumViews(
+    [{ id: FREE_GIFT.vacuum, rarity: VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).rarity, canvas: giftBtn.querySelector('canvas') }],
+    null,
+  )
+  giftViews.setActive(true)
+  let lastTick = performance.now()
   function tick() {
-    bind.luck.textContent = mmss(remaining(TIMERS.luckEvent.period, TIMERS.luckEvent.startAt))
-    bind.gift.textContent = `FREE IN ${mmss(remaining(TIMERS.freeGift.period, TIMERS.freeGift.startAt))}`
+    const now = performance.now()
+    const dt = (now - lastTick) / 1000
+    lastTick = now
+    if (document.visibilityState === 'visible' && dt < 2 && !state.giftClaimed) addPlaySeconds(dt)
+    giftBtn.hidden = state.giftClaimed
+    const left = FREE_GIFT.playSeconds - state.playSeconds
+    bind.gift.textContent = left > 0 ? `FREE IN ${mmss(left)}` : 'CLAIM!'
+    giftBtn.classList.toggle('ready', left <= 0)
+    tickBoosts()
+    if (s.dailyOpen || dailyWas !== dailyStatus().claimable) renderDaily()
+    dailyWas = dailyStatus().claimable
+  }
+  // Active x2 boosts: a pill with the time left; totals (Power, payouts) re-render when one ends.
+  let dailyWas = dailyStatus().claimable
+  let boostSig = ''
+  function tickBoosts() {
+    for (const [kind, name] of [['power', 'Power'], ['cash', 'Cash']]) {
+      const el = bind[kind === 'power' ? 'boostPower' : 'boostCash']
+      const left = boostLeft(kind)
+      el.style.display = left > 0 ? '' : 'none'
+      if (left > 0) el.textContent = `${DAILY.boostMult}x ${name} ${hms(left / 1000)}`
+    }
+    const sig = `${boostActive('power')}${boostActive('cash')}`
+    if (sig !== boostSig) {
+      boostSig = sig
+      render()
+    }
   }
   // "+N Power" pop floats up from the player's chest on every training tick (scattered randomly
   // around the player so rapid ticks don't stack), like the +Strength pop in the Chop Trees game.
   const pops = document.createElement('div')
   pops.className = 'pops'
   root.appendChild(pops)
+  // Tick sound: one preloaded element, restarted per tick. Quieter than the one-off cash/level-up
+  // sfx (0.5/0.4) since it repeats every training tick.
+  const powerSfx = new Audio(`${import.meta.env.BASE_URL}audio/power_gain.mp3`)
+  powerSfx.preload = 'auto'
   onPowerGain((n) => {
+    try {
+      powerSfx.volume = 0.3 * sfx()
+      powerSfx.currentTime = 0
+      powerSfx.play()?.catch(() => {})
+    } catch {}
     if (!settings.vfx) return
     const el = document.createElement('div')
     el.className = 'chop-pop'
@@ -710,7 +892,7 @@ export function createHud({ showMenu }) {
   const syncWindowOpen = () =>
     document.body.classList.toggle(
       'win-open',
-      s.sellOpen || s.upgradesOpen || s.vacuumsOpen || s.rebirthOpen || s.indexOpen || s.aurasOpen || back.classList.contains('open') || cfg.classList.contains('open'),
+      s.sellOpen || s.dailyOpen || s.upgradesOpen || s.vacuumsOpen || s.rebirthOpen || s.indexOpen || s.aurasOpen || back.classList.contains('open') || cfg.classList.contains('open'),
     )
   new MutationObserver(syncWindowOpen).observe(back, { attributes: true, attributeFilter: ['class'] })
   new MutationObserver(syncWindowOpen).observe(cfg, { attributes: true, attributeFilter: ['class'] })

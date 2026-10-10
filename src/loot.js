@@ -113,6 +113,24 @@ export function createLoot(scene, piles) {
     return new Map(picked.map((p, k) => [p.id, uncommonAt.has(k) ? 'Uncommon' : 'Common']))
   })()
 
+  // Planned x1 loot piles already blown away (the tutorial points at the ones still to do).
+  // Uncommon piles come first (worth ~10x a Common), nearest first, so a new player needs fewer sell trips.
+  const spent = new Set()
+  function hintPile(x, z) {
+    let best = null
+    let bestScore = Infinity
+    for (const [id, rarity] of plan) {
+      if (spent.has(id)) continue
+      const p = piles[id]
+      const score = (p.x - x) ** 2 + (p.z - z) ** 2 + (rarity === 'Uncommon' ? 0 : 1e9)
+      if (score < bestScore) {
+        bestScore = score
+        best = p
+      }
+    }
+    return best
+  }
+
   // --- Drops -----------------------------------------------------------------
   function addDrop(rarity, x, z) {
     const pool = POOLS[rarity]
@@ -152,6 +170,7 @@ export function createLoot(scene, piles) {
   }
 
   function spawnFor(pile) {
+    spent.add(pile.id)
     if (pile.zone === 0) {
       const rarity = plan.get(pile.id)
       if (rarity) addDrop(rarity, pile.x, pile.z)
@@ -190,11 +209,13 @@ export function createLoot(scene, piles) {
 
   return {
     spawnFor,
+    hintPile, // nearest x1 pile that still hides loot: { x, z } or null
     get count() { return drops.length },
     get drops() { return drops },
 
     // The field regrew: whatever was lying there is gone.
     reset() {
+      spent.clear()
       for (const d of [...drops]) remove(d)
     },
 
