@@ -435,10 +435,11 @@ body.win-open > canvas { filter: blur(6px); }
    windows scale by --sw to fit the short screen and centre themselves whatever their height. */
 #hud.mob { top: env(safe-area-inset-top); right: env(safe-area-inset-right); bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left); }
 #hud.mob .a-hint { display: none; }
-#hud.mob .menu { top: 14px; left: 10px; }
-#hud.mob .gift { left: 10px; top: 216px; width: 200px; transform: scale(0.7); transform-origin: 0 0; }
+#hud.mob { --sysoff: calc(88px / var(--s)); } /* clears the Bloxity menu buttons (real px, top-left) */
+#hud.mob .menu { top: calc(14px + var(--sysoff)); left: 10px; }
+#hud.mob .gift { left: 240px; top: calc(14px + var(--sysoff)); width: 200px; transform: scale(0.7); transform-origin: 0 0; }
 #hud.mob .gift .gprice { display: none; }
-#hud.mob .trail { left: 170px; top: 90px; height: 260px; }
+#hud.mob .trail { left: 170px; top: calc(90px + var(--sysoff)); height: 260px; }
 #hud.mob .center { top: 12px; }
 #hud.mob .boosts { right: 76px; top: 14px; }
 #hud.mob .stats { left: 8px; bottom: 14px; }

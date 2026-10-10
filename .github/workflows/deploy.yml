@@ -22,6 +22,14 @@ jobs:
 
       - run: npm ci
 
+      - name: Check tutorials are disabled
+        # Deploys must ship with both tutorials off (src/config.js).
+        run: |
+          if ! grep -Eq '^export const DISABLE_TUTORIALS = true([^A-Za-z0-9_]|$)' src/config.js; then
+            echo "::error::DISABLE_TUTORIALS must be 'true' in src/config.js."
+            exit 1
+          fi
+
       - name: Determine deploy channel
         id: channel
         run: |

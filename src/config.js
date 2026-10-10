@@ -412,6 +412,7 @@ export const DAILY = {
 // training pile (`pad`) until `power`, 2 blow leaves in Zone 1 until loot appears, 3 collect loot until the
 // Bag is worth enough for `vacuum`, 4 go to the Sell Loot stall, 5 press Sell All, 6 close the window,
 // 7 go to the Vacuums stall, 8 buy `vacuum`, 9 done.
+export const DISABLE_TUTORIALS = true // hides both the controls guide (hud.js) and the new-player tutorial (tutorial.js)
 export const TUTORIAL = { steps: 9, clickPower: 5, power: 30, pad: 1.5, vacuum: 'suburban', completeMs: 3500 }
 export const FONT_FAMILY = 'Fredoka'
 
