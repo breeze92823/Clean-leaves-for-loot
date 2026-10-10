@@ -274,7 +274,6 @@ renderer.setAnimationLoop(() => {
   playerScreen.y = 0.5 - chest.y * 0.5
   lights.follow(player.position.x, player.position.z)
   renderer.render(scene, camera)
-  bloxity.notifyFirstFrame()
   markLoaded('scene')
 })
 

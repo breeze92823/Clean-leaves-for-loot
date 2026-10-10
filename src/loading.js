@@ -3,6 +3,7 @@
 // isn't configured), then fades out. VITE_DEV_MODE=true skips it. Drop the game logo at
 // public/ui/logo.png; the title text shows until it exists.
 import { GAME_TITLE, DEV_MODE } from './config.js'
+import * as bloxity from './bloxity.js'
 import { subscribeAuth } from './bloxity.js'
 import './loading.css'
 
@@ -54,13 +55,40 @@ function finish() {
   setTimeout(() => root.remove(), FADE_MS)
 }
 
+// With the Bloxity SDK the portal's own loading overlay covers the game until loadingEnd(), so
+// we skip our overlay and just feed it step text, ending it once every step is done.
+let portalMode = false
+
+function portalUpdate() {
+  if (finished) return
+  const next = STEPS.find(([k]) => !done[k])
+  if (next) return void bloxity.sdk()?.game?.loadingStep?.(next[1])
+  finished = true
+  bloxity.notifyFirstFrame()
+}
+
 // Marks a step complete ('scene' | 'auth' | 'avatar' | 'net'); safe to call repeatedly.
 export function markLoaded(step) {
-  if (step in done) done[step] = true
+  if (step in done && !done[step]) {
+    done[step] = true
+    if (portalMode) portalUpdate()
+  }
 }
 
 export function createLoading() {
   if (DEV_MODE) return
+  if (bloxity.sdk()) {
+    portalMode = true
+    subscribeAuth((s) => {
+      if (s.ready) markLoaded('auth')
+    })
+    setTimeout(() => {
+      STEPS.forEach(([k]) => (done[k] = true))
+      portalUpdate()
+    }, GIVE_UP_MS)
+    portalUpdate()
+    return
+  }
   root = document.createElement('div')
   root.className = 'loading'
   root.style.transitionDuration = `${FADE_MS}ms`
