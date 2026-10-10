@@ -20,7 +20,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { addCollider } from './colliders.js'
 import { HUB, HUB_COLORS as C } from './config.js'
-import { dripTexture, studTile } from './textures.js'
+import { dripTexture, studTile, plazaPathTexture, PLAZA_DECAL as PD } from './textures.js'
 
 const STUD_TILE_M = 4 // one studTile covers 4 m (2 m checker cells)
 const DRIP_W = 8 // drip texture covers 8 m wide x 4 m tall
@@ -286,6 +286,12 @@ export function buildHub(scene) {
   const floor = mesh(fg, studMat(C.floorA, C.floorB), (H - I) / 2, 0.02, 0, false)
   floor.rotation.x = -Math.PI / 2
   root.add(floor)
+
+  // Cobbled roads + medallion decal over the floor.
+  const roadMat = new MeshStandardMaterial({ map: plazaPathTexture(), roughness: 0.9, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, depthWrite: false })
+  const road = mesh(new PlaneGeometry(PD.maxX - PD.minX, PD.maxZ - PD.minZ), roadMat, (PD.maxX + PD.minX) / 2, 0.04, 0, false)
+  road.rotation.x = -Math.PI / 2
+  root.add(road)
 
   // Inner terrace (three sides + the two west stubs either side of the opening).
   block(root, -I, I, -I, -H, iw.height, { seed: 1 })

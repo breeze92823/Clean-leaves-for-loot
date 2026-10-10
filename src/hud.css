@@ -45,7 +45,16 @@
 .gift { position: absolute; left: 318px; top: 72px; width: 200px; text-align: center; }
 .gift .t { font-size: 22px; letter-spacing: 0.5px; -webkit-text-stroke-width: 4px; }
 .gift .gun { width: 190px; height: 118px; margin-top: -6px; filter: drop-shadow(0 0 10px rgba(80, 220, 255, 0.8)); animation: gunbob 2.4s ease-in-out infinite; }
-.gift .op { position: absolute; right: 2px; top: 46px; font-size: 30px; color: #ff3a6a; -webkit-text-stroke: 5px #1a0a2a; paint-order: stroke fill; transform: rotate(-8deg); }
+.gift[hidden] { display: none; }
+.gift .gun { position: relative; }
+.gift .gun canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gift .gun:has(canvas.live) svg, .gift .gun.live svg { display: none; }
+.gift .gname { font-size: 17px; -webkit-text-stroke-width: 3px; }
+.gift .gpow { font-size: 20px; color: #7aeaff; -webkit-text-stroke-width: 4px; }
+.gift .gprice { display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 22px; -webkit-text-stroke-width: 4px; }
+.gift .gprice s { color: #ff8a8a; text-decoration: line-through 4px #ff2a4a; }
+.gift .gprice b { color: #7aff5a; font-weight: inherit; }
+.gift.ready .t { color: #7aff5a; }
 @keyframes gunbob { 50% { transform: translateY(-5px) rotate(-2deg); } }
 
 /* --- left menu ----------------------------------------------------------- */
@@ -110,10 +119,6 @@
 #hud:not(.in-field) .trail { opacity: 0; visibility: hidden; transform: translateX(-120px); pointer-events: none; transition: opacity 0.3s ease, transform 0.35s ease, visibility 0s 0.35s; }
 .level-icon { position: absolute; left: -6px; top: -8px; width: 66px; height: 66px; z-index: 1; filter: drop-shadow(0 2px 0 #0a2a40); }
 .power { margin-top: 6px; font-size: 32px; padding: 0 60px; background: linear-gradient(90deg, transparent, rgba(30, 40, 60, 0.35), transparent); }
-.luck { margin-top: 6px; width: 340px; height: 44px; border-radius: 10px; border: 3px solid #1a3a0a; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 27px;
-  background: linear-gradient(#7aff6a, #34c838); box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.12); }
-.luck i { width: 26px; height: 26px; display: block; color: #1a6a1a; }
-.luck .w1 { color: #3aff4a; } .luck .w2 { color: #ff6a2a; } .luck .w3 { color: #c45aff; } .luck .w4 { color: #ff4ac8; }
 
 /* --- top-right auto click --------------------------------------------------- */
 .auto { position: absolute; right: 382px; top: 20px; width: 166px; text-align: center; }

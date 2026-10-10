@@ -9,9 +9,13 @@ export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
 // Shows the Bloxbux (gem) buy buttons, e.g. in the Upgrades window (see .env.example).
 export const BUY_WITH_BLOXBUX = import.meta.env.VITE_BUY_WITH_BLOXBUX === 'true'
 
-// Colyseus game server (Clean-leaves-for-loot-backend). Empty = offline: no saving, no other players.
-// Local dev falls back to the server's default port; a deployed build must set VITE_SERVER_URL.
-export const SERVER_URL = import.meta.env.VITE_SERVER_URL || (import.meta.env.DEV ? 'ws://localhost:2567' : '')
+// Colyseus game server (Clean-leaves-for-loot-backend), one URL per Bloxity Legion channel: `npm run build`
+// (production) reads _MAIN, `npm run dev` and `npm run build:dev` read _DEV (`npm run dev` defaults to
+// the local server). Empty = net.js asks the Bloxity SDK for the channel's endpoint; with no SDK either
+// the game is offline (no saving, no other players).
+const SERVER_URL_DEV = import.meta.env.VITE_SERVER_URL_DEV || (import.meta.env.DEV ? 'ws://localhost:2567' : '')
+const SERVER_URL_MAIN = import.meta.env.VITE_SERVER_URL_MAIN || ''
+export const SERVER_URL = import.meta.env.MODE === 'production' ? SERVER_URL_MAIN : SERVER_URL_DEV
 export const NET = {
   poseHz: 15, // pose messages per second
   saveDebounce: 1.5, // s of quiet after a state change before saving
@@ -380,8 +384,10 @@ export const AURA_STAND = { x: 20, z: -14 } // the 'Auras' stand in props.js
 // Looping countdowns, seconds: period and the value shown on load.
 export const TIMERS = {
   luckEvent: { period: 4 * 60, startAt: 3 * 60 + 54 },
-  freeGift: { period: 17 * 60, startAt: 16 * 60 + 42 },
 }
+
+// The top-left gift tile: this vacuum is free once the player has spent `playSeconds` in game (saved).
+export const FREE_GIFT = { vacuum: 'packgun', playSeconds: 50 * 60 }
 export const FONT_FAMILY = 'Fredoka'
 
 export const MATERIAL_PBR = {

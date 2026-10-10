@@ -4,7 +4,7 @@
 import { player } from './player.js'
 import { offer } from './interact.js'
 import { notify, shortMoney, state, toast } from './state.js'
-import { TWIN_STAND, VACUUMS, VACUUM_STAND } from './config.js'
+import { FREE_GIFT, TWIN_STAND, VACUUMS, VACUUM_STAND } from './config.js'
 
 import { createTurbineSound } from './turbineSound.js'
 
@@ -38,6 +38,19 @@ export function pickVacuum(id) {
   }
   state.vacuum = id
   toast(`${v.name} equipped!`)
+  notify()
+}
+
+// Top-left gift tile: free once enough time has been played.
+export function claimGift() {
+  if (state.giftClaimed) return toast('Gift already claimed!')
+  const left = FREE_GIFT.playSeconds - state.playSeconds
+  if (left > 0) return toast(`Play ${Math.ceil(left / 60)} more min to unlock it!`)
+  const v = VACUUMS.find((x) => x.id === FREE_GIFT.vacuum)
+  if (!state.vacuumOwned.includes(v.id)) state.vacuumOwned.push(v.id)
+  state.giftClaimed = true
+  state.vacuum = v.id
+  toast(`${v.name} claimed and equipped!`)
   notify()
 }
 

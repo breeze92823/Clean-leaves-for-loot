@@ -14,6 +14,8 @@ export const state = {
   vacuumsOpen: false, // Vacuums window shown
   vacuumOwned: ['battery'], // ids bought (vacuums.js)
   vacuum: 'battery', // id equipped
+  playSeconds: 0, // total time played, saved; unlocks the free gift (FREE_GIFT)
+  giftClaimed: false, // the free gift vacuum was taken (vacuums.js)
   rebirthOpen: false, // Rebirth window shown
   indexOpen: false, // Index window shown
   discovered: [], // item names collected at least once (index.js); survives rebirths
@@ -21,6 +23,17 @@ export const state = {
   auraOwned: [], // ids bought or claimed (auras.js)
   aura: null, // id equipped
   upgrades: { range: 0, agility: 0, capacity: 0, walk: 0 }, // bought levels (upgrades.js)
+}
+
+// Counts played time; notifies only every 10 s so the HUD and saves aren't churned each tick.
+let playFrac = 0
+export function addPlaySeconds(dt) {
+  state.playSeconds += dt
+  playFrac += dt
+  if (playFrac >= 10) {
+    playFrac = 0
+    notify()
+  }
 }
 
 const listeners = new Set()

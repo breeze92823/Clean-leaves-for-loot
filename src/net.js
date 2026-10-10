@@ -3,13 +3,13 @@
 // the leaderboards. Never throws and never blocks play: with no server (or an unreachable one)
 // the game simply runs offline on local state.
 import { Client } from '@colyseus/sdk'
-import { NET, SERVER_URL } from './config.js'
-import { authState, getEquippedAvatar, getProportions, getSkinTextureUrl, subscribeAuth } from './bloxity.js'
+import { GAME_SLUG, NET, SERVER_URL } from './config.js'
+import { authState, sdk, getEquippedAvatar, getProportions, getSkinTextureUrl, subscribeAuth } from './bloxity.js'
 import { notify, state, subscribe } from './state.js'
 import { applyUpgrades } from './upgrades.js'
 
 // The keys the server persists (backend src/sanitize.ts).
-const SAVED = ['cash', 'power', 'leaves', 'level', 'xp', 'xpNext', 'rebirths', 'bag', 'sellLocked', 'discovered', 'vacuumOwned', 'vacuum', 'auraOwned', 'aura', 'upgrades']
+const SAVED = ['cash', 'power', 'leaves', 'level', 'xp', 'xpNext', 'rebirths', 'bag', 'sellLocked', 'discovered', 'vacuumOwned', 'vacuum', 'playSeconds', 'giftClaimed', 'auraOwned', 'aura', 'upgrades']
 const AVATAR_MAX = 3000 // backend AVATAR_MAX_LEN
 
 export const net = {
@@ -183,14 +183,24 @@ function attach(room) {
   syncAvatar()
 }
 
+// Bloxity hosting has no fixed socket URL: the SDK resolves the endpoint of this game's server
+// (a dev-channel page reaches the dev backend, prod the prod one) on every connect, and each
+// resolve needs its own Client. A configured SERVER_URL (config.js, per channel) wins.
+const canResolve = () => typeof sdk()?.net?.resolveEndpoint === 'function'
+async function serverUrl() {
+  if (SERVER_URL) return SERVER_URL
+  const { endpoint } = await sdk().net.resolveEndpoint(GAME_SLUG)
+  return endpoint
+}
+
 let connecting = false
 async function connect() {
-  if (!SERVER_URL || connecting || net.connected) return
+  if (!(SERVER_URL || canResolve()) || connecting || net.connected) return
   connecting = true
   try {
     const id = identity()
     sentId = id.userId
-    const client = new Client(SERVER_URL)
+    const client = new Client(await serverUrl())
     attach(await client.joinOrCreate('world', { ...id, avatar: avatarJson() }))
   } catch (err) {
     console.warn('[net] could not reach the server; playing offline', err?.message ?? err)
@@ -201,7 +211,7 @@ async function connect() {
 }
 
 export function initNet() {
-  if (!SERVER_URL) return
+  if (!SERVER_URL && !canResolve()) return console.info('[net] no server configured; playing offline')
   subscribe(() => {
     scheduleSave()
     syncEquipment()

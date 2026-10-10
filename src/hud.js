@@ -3,19 +3,19 @@
 // Plain DOM over the canvas. Menu tiles open a placeholder panel; purchase
 // buttons show a toast (no store yet).
 import './hud.css'
-import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, TIMERS, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
+import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, FREE_GIFT, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
 import { player, respawn } from './player.js'
 import { ICONS, auraIcon, vacuumIcon } from './icons.js'
-import { mmss, remaining } from './timers.js'
+import { mmss } from './timers.js'
 import { ITEM_CATALOG, ITEM_INFO, RARITY, RARITY_ROW_BG } from './data/loot.js'
 import { closeIndex, indexProgress, openIndex } from './index.js'
 import { createIndexViews } from './indexView.js'
 import { playerScreen } from './screenPos.js'
-import { state, subscribe, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier } from './state.js'
+import { addPlaySeconds, state, subscribe, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier } from './state.js'
 import { closeRebirth, openRebirth, rebirthLevel, rebirthProgress, tryRebirth } from './rebirth.js'
 import { bagValue, closeSell, groupBag, isLocked, payout, sellAll, sellItem, toggleLock, unlockedBag } from './sell.js'
 import { buyUpgrade, closeUpgrades, upgradeCost } from './upgrades.js'
-import { closeVacuums, pickVacuum } from './vacuums.js'
+import { claimGift, closeVacuums, pickVacuum } from './vacuums.js'
 import { createVacuumViews } from './vacuumView.js'
 import { settings, setSettings, subscribeSettings, sfx } from './settings.js'
 import { closeAuras, pickAura } from './auras.js'
@@ -61,9 +61,11 @@ function template() {
       </div>
     </div>
     <button class="gift pressable" data-act="gift">
-      <div class="t o" data-bind="gift">FREE IN 16:42</div>
-      <div class="gun">${ICONS.gun}</div>
-      <div class="op">OP!</div>
+      <div class="t o" data-bind="gift"></div>
+      <div class="gun"><canvas></canvas>${ICONS.gun}</div>
+      <div class="gname o-thin">${VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).name}</div>
+      <div class="gpow o">${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).power)} Power</div>
+      <div class="gprice o"><s>$${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).cost)}</s><b>FREE</b></div>
     </button>
     <div class="menu">
       <button class="tile wide pressable" data-panel="Quests">${icon('pencil')}<span class="o">Quests</span></button>
@@ -95,7 +97,6 @@ function template() {
         </div>
       </div>
       <div class="power o" data-bind="power"></div>
-      <div class="luck">${icon('clover')}<span class="o-thin"><span class="w1">Luck</span> <span class="w2">event</span> <span class="w3">in</span> <span class="w4" data-bind="luck"></span></span></div>
     </div>
   </div>
 
@@ -433,7 +434,7 @@ export function createHud({ showMenu }) {
     else if (el.dataset.vfx) setSettings({ vfx: el.dataset.vfx === 'on' })
     else if (el.dataset.act === 'portal') showMenu()
     else if (el.dataset.act === 'home') respawn()
-    else if (el.dataset.act === 'gift') say('Your free gift is not ready yet!')
+    else if (el.dataset.act === 'gift') claimGift()
     else if (el.dataset.act === 'chat') say('Chat coming soon!')
   })
   // Keep clicks on the HUD from reaching the game's pointer handlers.
@@ -685,9 +686,22 @@ export function createHud({ showMenu }) {
     bind.cash.textContent = `$${short(s.cash)}`
     bind.rebirth.textContent = `${Math.floor(rebirthProgress() * 100)}%`
   }
+  const giftBtn = root.querySelector('.gift')
+  const giftViews = createVacuumViews(
+    [{ id: FREE_GIFT.vacuum, rarity: VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).rarity, canvas: giftBtn.querySelector('canvas') }],
+    null,
+  )
+  giftViews.setActive(true)
+  let lastTick = performance.now()
   function tick() {
-    bind.luck.textContent = mmss(remaining(TIMERS.luckEvent.period, TIMERS.luckEvent.startAt))
-    bind.gift.textContent = `FREE IN ${mmss(remaining(TIMERS.freeGift.period, TIMERS.freeGift.startAt))}`
+    const now = performance.now()
+    const dt = (now - lastTick) / 1000
+    lastTick = now
+    if (document.visibilityState === 'visible' && dt < 2 && !state.giftClaimed) addPlaySeconds(dt)
+    giftBtn.hidden = state.giftClaimed
+    const left = FREE_GIFT.playSeconds - state.playSeconds
+    bind.gift.textContent = left > 0 ? `FREE IN ${mmss(left)}` : 'CLAIM!'
+    giftBtn.classList.toggle('ready', left <= 0)
   }
   // "+N Power" pop floats up from the player's chest on every training tick (scattered randomly
   // around the player so rapid ticks don't stack), like the +Strength pop in the Chop Trees game.
