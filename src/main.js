@@ -29,6 +29,8 @@ import { createRemotePlayers } from './remotePlayers.js'
 import { createLoading, markLoaded } from './loading.js'
 import { createTutorial } from './tutorial.js'
 import { createLoginButton } from './login.js'
+import { createTouchControls } from './touch.js'
+import { isTouch } from './device.js'
 
 // --- Bloxity + player state -----------------------------------------------
 createLoading()
@@ -44,7 +46,9 @@ const GRAPHICS_PRESETS = {
   High: { shadows: true, antialias: true, dpr: 2, leaves: 1 },
   Ultra: { shadows: true, antialias: true, dpr: 2, leaves: 1 },
 }
-const preset = GRAPHICS_PRESETS[bloxity.settings.graphics_quality] ?? GRAPHICS_PRESETS.High
+const basePreset = GRAPHICS_PRESETS[bloxity.settings.graphics_quality] ?? GRAPHICS_PRESETS.High
+// Phones: no MSAA, capped pixel ratio and fewer leaves keep a steady frame rate.
+const preset = isTouch ? { ...basePreset, antialias: false, dpr: Math.min(basePreset.dpr, 1.5), leaves: Math.min(basePreset.leaves, 0.7) } : basePreset
 
 const renderer = new WebGLRenderer({ antialias: preset.antialias, powerPreference: 'high-performance' })
 renderer.outputColorSpace = SRGBColorSpace
@@ -95,6 +99,7 @@ leaves.onPileCleared(() => {
   notify()
 })
 createHud({ showMenu: bloxity.showMenu })
+createTouchControls({ showMenu: bloxity.showMenu })
 const tutorial = createTutorial(scene, loot)
 const remotes = createRemotePlayers(scene)
 initNet() // saves/loads progress and joins the shared room (no-op without a server)

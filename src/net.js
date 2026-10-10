@@ -10,7 +10,7 @@ import { applyUpgrades } from './upgrades.js'
 import { markLoaded } from './loading.js'
 
 // The keys the server persists (backend src/sanitize.ts).
-const SAVED = ['cash', 'power', 'leaves', 'level', 'xp', 'xpNext', 'rebirths', 'bag', 'sellLocked', 'discovered', 'vacuumOwned', 'vacuum', 'playSeconds', 'giftClaimed', 'auraOwned', 'aura', 'upgrades', 'dailyDay', 'dailyClaimedAt', 'boosts', 'tutorialStep']
+const SAVED = ['cash', 'power', 'leaves', 'level', 'xp', 'xpNext', 'rebirths', 'bag', 'sellLocked', 'discovered', 'vacuumOwned', 'vacuum', 'playSeconds', 'giftClaimed', 'auraOwned', 'aura', 'upgrades', 'dailyDay', 'dailyClaimedAt', 'boosts', 'tutorialStep', 'controlsDone']
 const AVATAR_MAX = 3000 // backend AVATAR_MAX_LEN
 
 export const net = {
@@ -159,7 +159,7 @@ function attach(room) {
     setServerTime(doc?.serverTime)
     // A saved account never gets the tutorial: the server sends tutorialStep = finished for one that
     // predates it, and an older server that sends nothing is treated the same way.
-    hydrate({ ...doc, tutorialStep: doc?.tutorialStep ?? TUTORIAL.steps })
+    hydrate({ ...doc, tutorialStep: doc?.tutorialStep ?? TUTORIAL.steps, controlsDone: doc?.controlsDone ?? true })
     state.tutorialReady = true
     notify()
     markLoaded('net')

@@ -11,7 +11,7 @@ import { ITEM_CATALOG, ITEM_INFO, RARITY, RARITY_ROW_BG } from './data/loot.js'
 import { closeIndex, indexProgress, openIndex } from './index.js'
 import { createIndexViews } from './indexView.js'
 import { playerScreen } from './screenPos.js'
-import { addPlaySeconds, state, subscribe, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier, boostActive, boostLeft } from './state.js'
+import { addPlaySeconds, state, subscribe, notify, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier, boostActive, boostLeft } from './state.js'
 import { closeRebirth, openRebirth, rebirthLevel, rebirthProgress, tryRebirth } from './rebirth.js'
 import { bagValue, closeSell, groupBag, isLocked, payout, sellAll, sellItem, toggleLock, unlockedBag } from './sell.js'
 import { buyUpgrade, closeUpgrades, upgradeCost } from './upgrades.js'
@@ -21,6 +21,7 @@ import { settings, setSettings, subscribeSettings, sfx } from './settings.js'
 import { closeAuras, pickAura } from './auras.js'
 import { createAuraViews } from './auraView.js'
 import { claimDaily, closeDaily, dailyStatus, openDaily } from './daily.js'
+import { isCompact } from './device.js'
 
 const REF_W = 1920
 const REF_H = 991
@@ -88,7 +89,6 @@ function template() {
       <div class="gprice o"><s>$${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).cost)}</s><b>FREE</b></div>
     </button>
     <div class="menu">
-      <button class="tile wide pressable" data-panel="Quests">${icon('pencil')}<span class="o">Quests</span></button>
       <button class="tile pressable" data-act="openIndex">${icon('book')}<span class="o">Index</span></button>
       <button class="tile pressable" data-panel="Config">${icon('gear')}<span class="o">Config</span></button>
       <button class="tile pressable" data-act="openRebirth">${icon('rebirth')}<span class="o">Rebirth</span><b class="pct o-thin" data-bind="rebirth"></b></button>
@@ -132,31 +132,31 @@ function template() {
       <div class="help-col" data-task="move">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Move</h3>
-        <div class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+        <div class="keys"><kbd data-code="KeyW,ArrowUp">W</kbd><kbd data-code="KeyA,ArrowLeft">A</kbd><kbd data-code="KeyS,ArrowDown">S</kbd><kbd data-code="KeyD,ArrowRight">D</kbd></div>
         <div class="cap o-thin">Press any one</div>
       </div>
       <div class="help-col" data-task="jump">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Jump</h3>
-        <div class="keys"><kbd class="wide">SPACE</kbd></div>
+        <div class="keys"><kbd class="wide" data-code="Space">SPACE</kbd></div>
         <div class="cap o-thin">Press it</div>
       </div>
       <div class="help-col" data-task="blow">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Blow Leaves</h3>
-        <div class="keys"><kbd>F</kbd><span class="or o-thin">or</span><kbd class="wide">CLICK</kbd></div>
+        <div class="keys"><kbd data-code="KeyF">F</kbd><span class="or o-thin">or</span><kbd class="wide" data-code="Click">CLICK</kbd></div>
         <div class="cap o-thin">Try it</div>
       </div>
       <div class="help-col" data-task="look">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Look</h3>
-        <div class="keys"><kbd class="wide">MOUSE</kbd></div>
+        <div class="keys"><kbd class="wide" data-code="Mouse">MOUSE</kbd></div>
         <div class="cap o-thin">Move the mouse</div>
       </div>
       <div class="help-col" data-task="zoom">
         <div class="chk" aria-hidden="true">&#10003;</div>
         <h3 class="o">Zoom</h3>
-        <div class="keys"><kbd class="wide">WHEEL</kbd></div>
+        <div class="keys"><kbd class="wide" data-code="Wheel">WHEEL</kbd></div>
         <div class="cap o-thin">Scroll once</div>
       </div>
       <div class="help-col" data-optional>
@@ -366,7 +366,16 @@ export function createHud({ showMenu }) {
   const bind = {}
   root.querySelectorAll('[data-bind]').forEach((el) => (bind[el.dataset.bind] = el))
 
-  const fit = () => root.style.setProperty('--s', Math.min(window.innerWidth / REF_W, window.innerHeight / REF_H))
+  // Desktop lays the HUD out in 1920x991. Phones / small windows use the compact layout (.mob in hud.css):
+  // a smaller reference space so text stays legible, and windows (--sw) scaled to fit the short screen.
+  const fit = () => {
+    const w = window.innerWidth
+    const h = window.innerHeight
+    const mob = isCompact()
+    root.classList.toggle('mob', mob)
+    root.style.setProperty('--s', mob ? Math.min(w / 1250, h / 620) : Math.min(w / REF_W, h / REF_H))
+    root.style.setProperty('--sw', mob ? Math.min(w / 800, h / 560) : Math.min(w / REF_W, h / REF_H))
+  }
   window.addEventListener('resize', fit)
   fit()
 
@@ -417,33 +426,64 @@ export function createHud({ showMenu }) {
     helpDone = true
     help.classList.add('hide')
   }
+  // Hold the guide back until the server says whether this is a new account; saved ones skip it.
+  help.classList.add('hide')
+  const syncHelp = () => {
+    if (helpDone || !state.tutorialReady) return
+    if (state.controlsDone) {
+      helpDone = true
+      return
+    }
+    help.classList.remove('hide')
+  }
+  subscribe(syncHelp)
+  syncHelp()
   const finishHelp = (msg) => {
     if (helpDone) return
     helpDone = true
+    state.controlsDone = true // saved with the account, so it never shows again
+    notify()
     if (msg) helpMsg.textContent = msg
     setTimeout(() => help.classList.add('hide'), msg ? 1300 : 0)
+  }
+  // Highlight the control being taught: the first unfinished task glows, and each of its keys
+  // lights up (green) once pressed. Each control finishes on first use (any one WASD key is enough).
+  const order = ['move', 'jump', 'blow', 'look', 'zoom']
+  const refreshActive = () => {
+    const cur = order.find((n) => !tasks[n].classList.contains('done'))
+    order.forEach((n) => tasks[n].classList.toggle('active', n === cur))
+  }
+  const hitKey = (name, code) => {
+    const el = tasks[name]
+    if (helpDone || !el || el.classList.contains('done')) return
+    const keys = [...el.querySelectorAll('kbd')]
+    keys.forEach((k) => k.dataset.code.split(',').includes(code) && k.classList.add('hit'))
+    tick1(name)
   }
   const tick1 = (name) => {
     const el = tasks[name]
     if (helpDone || !el || el.classList.contains('done')) return
     el.classList.add('done')
+    el.querySelectorAll('kbd').forEach((k) => k.classList.add('hit'))
+    refreshActive()
     if (Object.values(tasks).every((t) => t.classList.contains('done'))) finishHelp('Great! You are ready!')
   }
+  refreshActive()
   const moveKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
   let lookPx = 0
   window.addEventListener('keydown', (e) => {
-    if (moveKeys.includes(e.code)) tick1('move')
-    else if (e.code === 'Space') tick1('jump')
-    else if (e.code === 'KeyF') tick1('blow')
+    if (moveKeys.includes(e.code)) hitKey('move', e.code)
+    else if (e.code === 'Space') hitKey('jump', e.code)
+    else if (e.code === 'KeyF') hitKey('blow', e.code)
     else if (e.code === 'Enter') finishHelp()
   })
-  window.addEventListener('pointerdown', (e) => e.button === 0 && e.target.tagName === 'CANVAS' && tick1('blow'))
+  window.addEventListener('pointerdown', (e) => e.button === 0 && e.target.tagName === 'CANVAS' && hitKey('blow', 'Click'))
   window.addEventListener('pointermove', (e) => {
     if (!document.pointerLockElement && !(e.buttons & 2)) return
     lookPx += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0)
-    if (lookPx > 250) tick1('look')
+    if (lookPx > 250) hitKey('look', 'Mouse')
   })
-  window.addEventListener('wheel', (e) => e.target.tagName === 'CANVAS' && tick1('zoom'), { passive: true })
+  window.addEventListener('wheel', (e) => e.target.tagName === 'CANVAS' && hitKey('zoom', 'Wheel'), { passive: true })
 
   root.addEventListener('click', (e) => {
     const el = e.target.closest('button')
@@ -654,7 +694,7 @@ export function createHud({ showMenu }) {
     bind.rebBar.textContent = `Lvl. ${Math.min(s.level, need)} / ${need}`
   }
   // "LEVEL UP!" banner: replays whenever the level rises (a rebirth reset does not trigger it).
-  const levelUp = root.querySelector('.levelup')
+  const levelUp = root.querySelector('.levelup:not(.idxup)')
   const { inMs, holdMs, outMs } = LEVEL_UP_POPUP
   const totalMs = inMs + holdMs + outMs
   let lastLevel = s.level
@@ -791,7 +831,16 @@ export function createHud({ showMenu }) {
   const pops = document.createElement('div')
   pops.className = 'pops'
   root.appendChild(pops)
+  // Tick sound: one preloaded element, restarted per tick. Quieter than the one-off cash/level-up
+  // sfx (0.5/0.4) since it repeats every training tick.
+  const powerSfx = new Audio(`${import.meta.env.BASE_URL}audio/power_gain.mp3`)
+  powerSfx.preload = 'auto'
   onPowerGain((n) => {
+    try {
+      powerSfx.volume = 0.3 * sfx()
+      powerSfx.currentTime = 0
+      powerSfx.play()?.catch(() => {})
+    } catch {}
     if (!settings.vfx) return
     const el = document.createElement('div')
     el.className = 'chop-pop'

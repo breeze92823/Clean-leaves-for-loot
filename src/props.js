@@ -191,6 +191,71 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
   addCollider(x, z, 4.8, 0.6, 7.4, rot)
 }
 
+// --- Controls board ---------------------------------------------------------------
+
+// Keycap rows painted on the board: [label, keys[]] (strings in `keys` are drawn as caps).
+const CONTROL_ROWS = [
+  ['Move', ['W', 'A', 'S', 'D']],
+  ['Jump', ['SPACE']],
+  ['Blow Leaves', ['F', 'or', 'CLICK']],
+  ['Look', ['MOUSE']],
+  ['Zoom', ['WHEEL']],
+  ['Interact', ['E']],
+  ['Hotbar', ['1', '2', '3']],
+  ['Menu', ['ESC']],
+]
+
+const BOARD_SCALE = 2 // the controls board is drawn at double the leaderboard size
+
+function controlsBoard(parent, x, z, rot) {
+  const g = placed(parent, x, 0, z, rot)
+  g.scale.setScalar(BOARD_SCALE)
+  const wood = std(C.boardWood)
+  for (const sx of [-2.0, 2.0]) g.add(mesh(new BoxGeometry(0.4, 2, 0.4), wood, sx, 1, 0))
+  g.add(mesh(new BoxGeometry(4.8, 5.6, 0.4), wood, 0, 4.6, 0))
+  const board = panel(
+    512,
+    600,
+    (ctx, w, h) => {
+      ctx.fillStyle = C.boardPanel
+      ctx.fillRect(0, 0, w, h)
+      CONTROL_ROWS.forEach(([name, keys], i) => {
+        const y = 40 + i * 70
+        if (i % 2 === 0) {
+          ctx.fillStyle = 'rgba(0,0,0,0.12)'
+          ctx.fillRect(0, y - 32, w, 64)
+        }
+        drawText(ctx, name, 24, y, { px: 30, fill: '#ffe46a', strokeW: 3, shadow: false, align: 'left' })
+        // Keycaps right-aligned.
+        const caps = keys.map((k) => ({ k, w: k === 'or' ? 34 : Math.max(44, k.length * 18 + 24) }))
+        let cx = w - 20 - caps.reduce((a, c) => a + c.w + 8, -8)
+        for (const c of caps) {
+          if (c.k === 'or') drawText(ctx, 'or', cx + c.w / 2, y, { px: 24, fill: '#ffffff', strokeW: 2, shadow: false })
+          else {
+            ctx.fillStyle = '#121212'
+            ctx.beginPath()
+            ctx.roundRect(cx, y - 24, c.w, 48, 9)
+            ctx.fill()
+            ctx.fillStyle = '#f2f2f2'
+            ctx.beginPath()
+            ctx.roundRect(cx + 3, y - 21, c.w - 6, 38, 7)
+            ctx.fill()
+            drawText(ctx, c.k, cx + c.w / 2, y - 2, { px: c.k.length > 3 ? 22 : 28, fill: '#121212', stroke: null, shadow: false })
+          }
+          cx += c.w + 8
+        }
+      })
+    },
+    { height: 5.0, width: 4.25 },
+  )
+  board.object.position.set(0, 4.6, 0.21)
+  g.add(board.object)
+  const label = textLabel('Controls', { height: 1.4, px: 100, fill: ['#ffffff', '#cfe6ff'], stroke: '#2a3a5a', billboard: false })
+  label.object.position.set(0, 8.2, 0.1)
+  g.add(label.object)
+  addCollider(x, z, 4.8 * BOARD_SCALE, 0.6 * BOARD_SCALE, 7.4 * BOARD_SCALE, rot)
+}
+
 // --- Worlds portal --------------------------------------------------------------
 
 function portal(parent, x, z, rot) {
@@ -691,6 +756,9 @@ export function buildProps(scene) {
   leaderboard(root, -6, -22.5, 0.05, 'power', 'Power', ['#ffe48a', '#f6a21a'], 'Power', '#ffb23a')
   leaderboard(root, 4.5, -24, 0, 'rebirths', 'Rebirths', ['#ff8a8a', '#e2222a'], 'Rebirths', '#ff5a5a')
   leaderboard(root, 14, -23, -0.2, 'leaves', 'Leaves Cleaned', ['#c4ff7a', '#4cc81a'], 'Leaves', '#7aff4a')
+
+  // Beside the west opening (left as you walk out to the field): the controls reference.
+  controlsBoard(root, -23, 19.5, facing(-23, 19.5, 0, 4))
 
   // East: Auras, arcade, Upgrades.
   npcs.push(stand(root, { x: AURA_STAND.x, z: AURA_STAND.z, rot: facing(AURA_STAND.x, AURA_STAND.z, 0, 4), awning: ['#ff3fd0', '#f4f4f4'], title: 'Auras', titleFill: ['#ffb4f0', '#ff4fc8', '#d61f9e'], npcLook: 'girl' }))

@@ -67,6 +67,7 @@ export function install(showMenu, canvasEl) {
     recomputeMove()
   })
   window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') return // touch.js owns touch (stick, look, buttons)
     const onWorld = e.target.tagName === 'CANVAS'
     if (e.button === 2 && !lockEverGranted) orbiting = true
     if (e.button === 0 && onWorld) {
@@ -78,10 +79,12 @@ export function install(showMenu, canvasEl) {
     }
   })
   window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') return
     if (e.button === 2) orbiting = false
     if (e.button === 0) inputState.blow = false
   })
   window.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch') return
     if (!orbiting && !locked()) return
     inputState.look.dx += e.movementX || 0
     inputState.look.dy += e.movementY || 0

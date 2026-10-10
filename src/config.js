@@ -30,7 +30,7 @@ export const GROUND_Y = 0
 export const GROUND_SIZE = 1000 // square grass ground, centred on the origin (the hub floor sits on top)
 export const WORLD_BOUNDS = { minX: -438, maxX: 27.5, minZ: -27.5, maxZ: 27.5 } // backstop behind the wall colliders
 export const SPAWN = { x: 0, y: 0.3, z: 0 }
-export const SPAWN_FACING = Math.PI // yaw the character faces on spawn (PI = toward -Z)
+export const SPAWN_FACING = -Math.PI / 2 // yaw the character faces on spawn (-PI/2 = toward -X, the corridor west; PI = toward -Z)
 
 // --- Hub layout (hub.js / props.js) ------------------------------------------
 // Square plaza walled on three sides; the west wall opens onto the leaf field,
@@ -406,10 +406,11 @@ export const DAILY = {
   ],
 }
 // New-player tutorial (tutorial.js; the step is saved with the account by net.js, and the backend's
-// constants.ts TUTORIAL_DONE_STEP must equal `steps`). 0 hold click to train to `power`, 1 blow leaves in
-// Zone 1 until loot appears, 2 collect loot until the Bag is worth enough for `vacuum`, 3 go to the Sell
-// Loot stall, 4 press Sell All, 5 close the window, 6 go to the Vacuums stall, 7 buy `vacuum`, 8 done.
-export const TUTORIAL = { steps: 8, power: 30, vacuum: 'suburban', completeMs: 3500 }
+// constants.ts TUTORIAL_DONE_STEP must equal `steps`). 0 hold click until `clickPower`, 1 stand on the x1.5
+// training pile (`pad`) until `power`, 2 blow leaves in Zone 1 until loot appears, 3 collect loot until the
+// Bag is worth enough for `vacuum`, 4 go to the Sell Loot stall, 5 press Sell All, 6 close the window,
+// 7 go to the Vacuums stall, 8 buy `vacuum`, 9 done.
+export const TUTORIAL = { steps: 9, clickPower: 5, power: 30, pad: 1.5, vacuum: 'suburban', completeMs: 3500 }
 export const FONT_FAMILY = 'Fredoka'
 
 export const MATERIAL_PBR = {

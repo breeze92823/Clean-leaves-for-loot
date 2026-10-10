@@ -8,8 +8,10 @@ import './tutorial.css'
 import { LEAVES, SELL_STAND, TUTORIAL, VACUUM_STAND, VACUUMS } from './config.js'
 import { player, floorAt } from './player.js'
 import { notify, shortMoney, state, totalPower } from './state.js'
+import { padWithMult } from './trainPads.js'
 import { bagValue, payout, unlockedBag } from './sell.js'
 import { nextStep } from './tutorialLogic.js'
+import { isTouch } from './device.js'
 
 const VACUUM = VACUUMS.find((v) => v.id === TUTORIAL.vacuum)
 const ZONE1 = { x: (LEAVES.zones.edges[0] + LEAVES.zones.edges[1]) / 2, z: 0 }
@@ -22,9 +24,9 @@ const BEACON_HEIGHT = 4.5 // m above the ground the big arrow floats
 
 // Where the UI arrow points on each step: [selector, side of the element it sits on].
 const UI_TARGETS = {
-  4: ['.shp [data-sell="all"]', 'top'],
-  5: ['.shp [data-act="closeSell"]', 'left'],
-  7: [`.vac [data-vacuum="${TUTORIAL.vacuum}"]`, 'top'],
+  5: ['.shp [data-sell="all"]', 'top'],
+  6: ['.shp [data-act="closeSell"]', 'left'],
+  8: [`.vac [data-vacuum="${TUTORIAL.vacuum}"]`, 'top'],
 }
 
 export function createTutorial(scene, loot) {
@@ -109,10 +111,11 @@ export function createTutorial(scene, loot) {
 
   // The 3D target for a step, or null: the loot lying about, else the nearest x1 pile still hiding some.
   function target(step) {
-    if (step === 1 || step === 2) {
+    if (step === 1) return padWithMult(TUTORIAL.pad) ?? ZONE1
+    if (step === 2 || step === 3) {
       let best = null
       let bestD = Infinity
-      if (step === 2) {
+      if (step === 3) {
         // Most valuable loot lying about first (ties: nearest), so the bag fills with the best stuff.
         let bestV = -1
         for (const d of loot.drops) {
@@ -126,8 +129,8 @@ export function createTutorial(scene, loot) {
       }
       return best ?? loot.hintPile(player.position.x, player.position.z) ?? ZONE1
     }
-    if (step === 3) return SELL_STAND
-    if (step === 6) return VACUUM_STAND
+    if (step === 4) return SELL_STAND
+    if (step === 7) return VACUUM_STAND
     return null
   }
 
@@ -157,7 +160,7 @@ export function createTutorial(scene, loot) {
     trail.count = n
     trail.instanceMatrix.needsUpdate = true
     beacon.visible = true
-    beacon.position.set(to.x, floorAt(to.x, to.z) + BEACON_HEIGHT + Math.sin(t * 4) * 0.35, to.z)
+    beacon.position.set(to.x, (to.top ?? floorAt(to.x, to.z)) + BEACON_HEIGHT + Math.sin(t * 4) * 0.35, to.z)
     beacon.rotation.set(0, t * 2, Math.PI, 'YXZ') // point down, spin about the vertical
   }
 
@@ -182,6 +185,7 @@ export function createTutorial(scene, loot) {
     const worth = payout(bagValue(unlocked))
     const next = nextStep(step, {
       power: totalPower(),
+      clickGoal: TUTORIAL.clickPower,
       powerGoal: TUTORIAL.power,
       cash: state.cash,
       cost: VACUUM.cost,
@@ -208,13 +212,14 @@ export function createTutorial(scene, loot) {
 
     const need = Math.max(0, VACUUM.cost - state.cash)
     const [title, hint] = [
-      [`Hold CLICK to gain Power (${Math.floor(Math.min(totalPower(), TUTORIAL.power))}/${TUTORIAL.power})`, ''],
-      ['Click and blow away the leaves in Zone 1!', 'Follow the arrow to the high-value loot'],
-      [`Collect loot worth $${shortMoney(need)}!`, `Press E to pick it up (bag $${shortMoney(worth)}/$${shortMoney(need)})`],
-      ['Sell your loot!', 'Walk to the Sell Loot stall and press E'],
+      [`Hold ${isTouch ? 'BLOW' : 'CLICK'} to gain Power (${Math.floor(Math.min(totalPower(), TUTORIAL.clickPower))}/${TUTORIAL.clickPower})`, ''],
+      [`Stand on the x${TUTORIAL.pad} Power Training Pile (${Math.floor(Math.min(totalPower(), TUTORIAL.power))}/${TUTORIAL.power})`, 'It trains you automatically while you stand on it'],
+      [`${isTouch ? 'Hold BLOW to clear' : 'Click and blow away'} the leaves in Zone 1!`, 'Follow the arrow to the high-value loot'],
+      [`Collect loot worth $${shortMoney(need)}!`, `${isTouch ? 'Tap the E button' : 'Press E'} to pick it up (bag $${shortMoney(worth)}/$${shortMoney(need)})`],
+      ['Sell your loot!', `Walk to the Sell Loot stall and ${isTouch ? 'tap E' : 'press E'}`],
       ['Press Sell All!', ''],
       ['Close the window', ''],
-      ['Buy a better Vacuum!', 'Walk to the Vacuums stall and press E'],
+      ['Buy a better Vacuum!', `Walk to the Vacuums stall and ${isTouch ? 'tap E' : 'press E'}`],
       [`Buy the ${VACUUM.name}!`, ''],
     ][step]
     paintBanner(`${step}|${title}|${hint}`, title, hint)

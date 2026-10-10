@@ -28,6 +28,7 @@ export const state = {
   boosts: { power: 0, cash: 0 }, // timed x2 boosts: epoch ms each one expires, saved
   upgrades: { range: 0, agility: 0, capacity: 0, walk: 0 }, // bought levels (upgrades.js)
   tutorialStep: 0, // onboarding progress, saved; TUTORIAL.steps = finished (tutorial.js)
+  controlsDone: false, // the controls guide was completed, saved; true for existing accounts (hud.js)
   tutorialReady: false, // the server has said whether this account is new (net.js); never shown before
 }
 

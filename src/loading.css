@@ -16,3 +16,9 @@
 .loading-drift { position: absolute; inset: 0; pointer-events: none; }
 .loading-drift span { position: absolute; top: -12%; opacity: 0.9; animation: loading-fall linear infinite; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3)); }
 @keyframes loading-fall { from { transform: translateY(0) rotate(0deg); } to { transform: translateY(125vh) rotate(360deg); } }
+@media (max-height: 480px) {
+  .loading { gap: 8px; }
+  .loading-logo { max-height: 38vh; }
+  .loading-track { height: 26px; bottom: 6vh; }
+  .loading-pct { font-size: 17px; }
+}

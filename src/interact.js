@@ -8,6 +8,10 @@ el.innerHTML = '<kbd>E</kbd><span></span>'
 el.style.display = 'none'
 document.body.appendChild(el)
 const text = el.querySelector('span')
+el.addEventListener('pointerdown', (e) => {
+  inputState.interact = true // touch: the prompt is the E button (touch.css makes it tappable)
+  e.stopPropagation()
+})
 
 let best = null
 let shown = null

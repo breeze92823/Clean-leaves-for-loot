@@ -28,7 +28,7 @@
 .a-tr { right: 0; top: 0; transform-origin: 100% 0; transform: scale(var(--s)); }
 
 .pressable { transition: transform 0.08s ease; }
-.pressable:hover { transform: scale(1.06); }
+@media (hover: hover) { .pressable:hover { transform: scale(1.06); } }
 .pressable:active { transform: scale(0.94); }
 
 /* --- top-left system buttons ------------------------------------------- */
@@ -199,7 +199,7 @@ body.win-open > canvas { filter: blur(6px); }
 .prompt kbd { background: #fff; color: #121212; -webkit-text-stroke: 0; text-shadow: none; border: 3px solid #121212; border-radius: 8px; min-width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 26px; box-shadow: 0 3px 0 #121212; }
 
 /* --- Upgrades window ----------------------------------------------------------- */
-.a-cc { left: 50%; top: 50%; transform-origin: 50% 50%; transform: translate(-50%, -50%) scale(var(--s)); }
+.a-cc { left: 50%; top: 50%; transform-origin: 50% 50%; transform: translate(-50%, -50%) scale(var(--sw, var(--s))); }
 .upg {
   --lmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cpath d='M7 7v9h9' fill='none' stroke='white' stroke-opacity='.3' stroke-width='2.5'/%3E%3C/svg%3E");
   position: absolute; left: -369px; top: -320px; width: 738px; display: none; flex-direction: column; align-items: center; pointer-events: auto;
@@ -422,3 +422,48 @@ body.win-open > canvas { filter: blur(6px); }
 .boost-pill { display: none; padding: 4px 16px 6px; font-size: 26px; line-height: 1.1; border: 4px solid #121212; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35); -webkit-text-stroke: 4px #121212; paint-order: stroke fill; }
 .boost-pill.power { background: linear-gradient(#f4ff7a, #ffc21a); }
 .boost-pill.cash { background: linear-gradient(#b8ff7a, #3ad24a); }
+
+/* controls guide: highlight the control to try next, light up keys as they are pressed */
+.help-col.active:not(.done) h3 { color: #ffe46a; }
+.help-col.active:not(.done) kbd:not(.hit) { animation: keyglow 1s ease-in-out infinite; border-color: #ffb400; }
+.help kbd.hit { background: linear-gradient(#b8ffc9, #5fe085); transform: translateY(4px); border-bottom-width: 5px; }
+.help-col:not(.active):not(.done):not([data-optional]) { opacity: 0.6; }
+@keyframes keyglow { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 220, 90, 0); transform: translateY(0); } 50% { box-shadow: 0 0 22px 6px rgba(255, 220, 90, 0.95); transform: translateY(-5px); } }
+
+/* --- Compact layout: phones and small windows (#hud.mob, set in hud.js) -------------------
+   --s is derived from a 1250x620 space here (bigger text than the desktop 1920x991 layout);
+   windows scale by --sw to fit the short screen and centre themselves whatever their height. */
+#hud.mob { top: env(safe-area-inset-top); right: env(safe-area-inset-right); bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left); }
+#hud.mob .a-hint { display: none; }
+#hud.mob .menu { top: 14px; left: 10px; }
+#hud.mob .gift { left: 10px; top: 216px; width: 200px; transform: scale(0.7); transform-origin: 0 0; }
+#hud.mob .gift .gprice { display: none; }
+#hud.mob .trail { left: 170px; top: 90px; height: 260px; }
+#hud.mob .center { top: 12px; }
+#hud.mob .boosts { right: 76px; top: 14px; }
+#hud.mob .stats { left: 8px; bottom: 14px; }
+#hud.mob .home-btn { top: 10px; }
+#hud.mob .a-tut { top: 128px; }
+#hud.mob .upg { left: 0 !important; top: 0 !important; translate: -50% -50%; }
+#hud.mob .upg-body { height: 420px; }
+#hud.mob .idx .upg-body, #hud.mob .reb .upg-body, #hud.mob .cfg .upg-body, #hud.mob .dly .upg-body { height: auto; }
+#hud.mob .idx-grid { height: 250px; }
+#hud.mob .dly-grid { height: 320px; }
+#hud.mob .reb .upg-body { padding: 12px 20px 12px; gap: 12px; }
+#hud.mob .reb-cell { height: 60px; }
+#hud.mob .reb-btn { height: 62px; }
+#hud.mob .cfg-row { height: 88px; }
+#hud.mob .upg-x { width: 64px; height: 64px; top: 0; }
+#hud.mob .upg-list { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#hud.mob .idx-grid { touch-action: pan-y; overscroll-behavior: contain; }
+#hud.mob .upg-head h2 { font-size: 48px; }
+.toast { max-width: 90vw; }
+html.touch .levelup { top: 92px; }
+html.touch .levelup-t { font-size: 44px; -webkit-text-stroke-width: 7px; }
+html.touch .idxup { top: 150px; }
+html.touch .idxup .levelup-t { font-size: 40px; }
+html.touch .levelup-s { font-size: 22px; }
+html.touch .toast { font-size: 22px; top: 18%; }
+html.touch .modal { padding: 14px 18px 20px; }
+html.touch .modal h2 { font-size: 34px; margin-bottom: 10px; }
+html.touch .modal .x { width: 48px; height: 48px; }
