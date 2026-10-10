@@ -3,10 +3,19 @@
 // state.dailyDay / dailyClaimedAt and the server-corrected clock (state.js now()), so it survives reloads.
 import { DAILY, VACUUMS } from './config.js'
 import { net } from './net.js'
+import { sfx } from './settings.js'
 import { notify, now, state, toast } from './state.js'
 
 const DAY_MS = 86400000
 const dayKey = (ms) => Math.floor(ms / DAY_MS)
+const winSfx = new Audio(`${import.meta.env.BASE_URL}audio/win-claim.mp3`)
+const playWin = () => {
+  try {
+    winSfx.volume = 0.35 * sfx()
+    winSfx.currentTime = 0
+    winSfx.play()?.catch(() => {})
+  } catch {}
+}
 const nextDay = (d) => (d >= DAILY.rewards.length ? 1 : d + 1)
 
 // { claimable, next (1-based day up now / tomorrow), claimed (days 1..claimed are done), msLeft (until the next UTC day) }
@@ -53,6 +62,7 @@ export function claimDaily() {
   }
   state.dailyDay = next
   state.dailyClaimedAt = t
+  playWin()
   toast(`Day ${next} reward claimed!`)
   notify()
 }

@@ -59,7 +59,21 @@ export function subscribe(fn) {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
+// Only one window at a time: when a window opens, the ones already open are closed.
+const WINDOW_KEYS = ['sellOpen', 'upgradesOpen', 'vacuumsOpen', 'rebirthOpen', 'indexOpen', 'aurasOpen', 'dailyOpen']
+let openWindows = new Set()
+function exclusiveWindows() {
+  const now = WINDOW_KEYS.filter((k) => state[k])
+  if (now.length > 1) {
+    const fresh = now.filter((k) => !openWindows.has(k))
+    const keep = fresh.length ? fresh[fresh.length - 1] : now[now.length - 1]
+    for (const k of now) if (k !== keep) state[k] = false
+    openWindows = new Set([keep])
+  } else openWindows = new Set(now)
+}
+
 export function notify() {
+  exclusiveWindows()
   state.backpack = state.bag.length
   for (const fn of listeners) fn(state)
 }
@@ -96,8 +110,8 @@ export function trainPower(dt, mult = 1) {
   const now = performance.now()
   if (now - lastGain < POWER_GAIN.interval * 1000) return
   lastGain = now
-  const gained = POWER_GAIN.perTick * powerGainMultiplier() * indexBonus() * mult
-  state.power += gained
+  const gained = Math.round(POWER_GAIN.perTick * powerGainMultiplier() * indexBonus() * mult * 10) / 10
+  state.power = Math.round((state.power + gained) * 10) / 10
   state.xp += POWER_GAIN.perTick * mult
   while (state.xp >= state.xpNext) {
     state.xp -= state.xpNext

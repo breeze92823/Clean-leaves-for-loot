@@ -36,7 +36,7 @@ export function short(n) {
     n /= 1000
     i++
   }
-  return `${i ? +n.toFixed(n < 100 ? 1 : 0) : n}${units[i]}`
+  return `${i ? +n.toFixed(n < 100 ? 1 : 0) : +n.toFixed(1)}${units[i]}`
 }
 
 const icon = (name) => `<i>${ICONS[name]}</i>`
@@ -92,7 +92,7 @@ function template() {
       <button class="tile pressable" data-act="openIndex">${icon('book')}<span class="o">Index</span></button>
       <button class="tile pressable" data-panel="Config">${icon('gear')}<span class="o">Config</span></button>
       <button class="tile pressable" data-act="openRebirth">${icon('rebirth')}<span class="o">Rebirth</span><b class="pct o-thin" data-bind="rebirth"></b></button>
-      <button class="tile pressable" data-act="openDaily">${icon('calendar')}<span class="o">Daily</span><b class="alert" data-bind="dailyAlert">!</b></button>
+      <button class="tile pressable" data-act="openDaily">${icon('calendar')}<span class="o">Daily</span></button>
     </div>
   </div>
 
@@ -705,7 +705,6 @@ export function createHud({ showMenu }) {
   }
   function renderDaily() {
     const { claimable, next, claimed, msLeft } = dailyStatus()
-    bind.dailyAlert.style.display = claimable ? '' : 'none'
     dlyPanel.classList.toggle('open', s.dailyOpen)
     dlyViews.setActive(s.dailyOpen)
     if (!s.dailyOpen) return

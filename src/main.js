@@ -1,4 +1,4 @@
-import { Clock, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, Vector3, WebGLRenderer, Group } from 'three'
+import { Clock, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, Vector3, WebGLRenderer, Group, PointLight } from 'three'
 import { CAMERA, LEAVES, SPAWN, SPAWN_FACING } from './config.js'
 import * as bloxity from './bloxity.js'
 import { inputState, install as installInput } from './input.js'
@@ -28,6 +28,7 @@ import { initNet, sendPose, syncAvatar } from './net.js'
 import { createRemotePlayers } from './remotePlayers.js'
 import { createLoading, markLoaded } from './loading.js'
 import { createTutorial } from './tutorial.js'
+import { installClickSound } from './clickSound.js'
 import { createLoginButton } from './login.js'
 import { createTouchControls } from './touch.js'
 import { isTouch } from './device.js'
@@ -57,6 +58,7 @@ renderer.shadowMap.type = PCFSoftShadowMap
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.dpr))
 document.body.appendChild(renderer.domElement)
 installInput(bloxity.showMenu, renderer.domElement)
+installClickSound()
 
 const scene = new Scene()
 scene.fog = createFog()
@@ -115,6 +117,9 @@ scene.add(playerGroup)
 // The equipped aura's light/particle show surrounds the player (auraFx.js); swapped on equip.
 let auraId = null
 let auraFx = null
+const auraLamp = new PointLight(0xffffff, 0, 10, 2) // always in the scene so equipping never changes the light count
+auraLamp.position.y = 1.2
+playerGroup.add(auraLamp)
 function syncAura() {
   if (state.aura === auraId) return
   auraId = state.aura
@@ -124,7 +129,7 @@ function syncAura() {
     auraFx = null
   }
   if (auraId) {
-    auraFx = buildAuraFx(auraId, { light: true })
+    auraFx = buildAuraFx(auraId, { light: auraLamp })
     playerGroup.add(auraFx.group)
   }
 }
