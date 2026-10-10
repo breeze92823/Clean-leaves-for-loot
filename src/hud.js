@@ -159,11 +159,11 @@ function template() {
         <div class="keys"><kbd class="wide" data-code="Wheel">WHEEL</kbd></div>
         <div class="cap o-thin">Scroll once</div>
       </div>
-      <div class="help-col" data-optional>
-        
-        <h3 class="o">Menu</h3>
-        <div class="keys"><kbd class="wide">ESC</kbd></div>
-        <div class="cap o-thin">Free cursor</div>
+      <div class="help-col" data-task="cursor">
+        <div class="chk" aria-hidden="true">&#10003;</div>
+        <h3 class="o">Cursor</h3>
+        <div class="keys"><kbd class="wide" data-code="Cursor">CLICK</kbd></div>
+        <div class="cap o-thin">Click the world</div>
       </div>
       <div class="help-go o" data-bind="helpMsg">Try each control to continue</div>
       <div class="help-skip o-thin">Enter = skip</div>
@@ -445,13 +445,36 @@ export function createHud({ showMenu }) {
     notify()
     if (msg) helpMsg.textContent = msg
     setTimeout(() => help.classList.add('hide'), msg ? 1300 : 0)
+    if (msg) setTimeout(() => window.dispatchEvent(new Event('controls-done')), 1300) // props.js lights up the Controls board
   }
   // Highlight the control being taught: the first unfinished task glows, and each of its keys
   // lights up (green) once pressed. Each control finishes on first use (any one WASD key is enough).
-  const order = ['move', 'jump', 'blow', 'look', 'zoom']
+  const order = ['move', 'jump', 'blow', 'look', 'zoom', 'cursor']
   const refreshActive = () => {
     const cur = order.find((n) => !tasks[n].classList.contains('done'))
     order.forEach((n) => tasks[n].classList.toggle('active', n === cur))
+    if (cur === 'cursor' && cursorPhase < 0) setCursorPhase(document.pointerLockElement ? 1 : 0) // start from what the mouse is doing now
+  }
+  // Cursor step, read from the live pointer-lock state so it only asks for what comes next:
+  // 0 free -> click to grab it, 1 grabbed -> ESC to free it, 2 freed -> click to take it back.
+  let cursorPhase = -1
+  const CURSOR_STEPS = [
+    ['CLICK', '1/3 - Click the world to grab the mouse'],
+    ['ESC', '2/3 - Press ESC to free your mouse'],
+    ['CLICK', '3/3 - Click the world to get camera control back'],
+  ]
+  const setCursorPhase = (p) => {
+    cursorPhase = p
+    const kbd = tasks.cursor.querySelector('kbd')
+    kbd.textContent = CURSOR_STEPS[p][0]
+    kbd.classList.remove('hit')
+    tasks.cursor.querySelector('.cap').textContent = CURSOR_STEPS[p][1]
+  }
+  const cursorEvent = (ev) => {
+    if (helpDone || !tasks.cursor.classList.contains('active')) return
+    if (cursorPhase === 0 && (ev === 'click' || ev === 'locked')) setCursorPhase(1)
+    else if (cursorPhase === 1 && (ev === 'esc' || ev === 'unlocked')) setCursorPhase(2)
+    else if (cursorPhase === 2 && (ev === 'click' || ev === 'locked')) tick1('cursor')
   }
   const hitKey = (name, code) => {
     const el = tasks[name]
@@ -475,9 +498,22 @@ export function createHud({ showMenu }) {
     if (moveKeys.includes(e.code)) hitKey('move', e.code)
     else if (e.code === 'Space') hitKey('jump', e.code)
     else if (e.code === 'KeyF') hitKey('blow', e.code)
+    else if (e.code === 'Escape') cursorEvent('esc')
     else if (e.code === 'Enter') finishHelp()
   })
-  window.addEventListener('pointerdown', (e) => e.button === 0 && e.target.tagName === 'CANVAS' && hitKey('blow', 'Click'))
+  // Esc while the pointer is locked is swallowed by the browser: it just releases the lock.
+  // Look only turns the camera while the mouse is captured, so say so when it is free (e.g. after ESC).
+  const lookCap = tasks.look.querySelector('.cap')
+  const syncLookCap = () => {
+    lookCap.textContent = document.pointerLockElement ? 'Move the mouse' : 'Click the world, then move the mouse'
+    tasks.look.classList.toggle('free', !document.pointerLockElement)
+  }
+  syncLookCap()
+  document.addEventListener('pointerlockchange', () => {
+    syncLookCap()
+    cursorEvent(document.pointerLockElement ? 'locked' : 'unlocked')
+  })
+  window.addEventListener('pointerdown', (e) => e.button === 0 && e.target.tagName === 'CANVAS' && (hitKey('blow', 'Click'), cursorEvent('click')))
   window.addEventListener('pointermove', (e) => {
     if (!document.pointerLockElement && !(e.buttons & 2)) return
     lookPx += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0)

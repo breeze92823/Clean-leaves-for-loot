@@ -7,15 +7,19 @@ import { isTouch } from './device.js'
 const PORTAL_URL = 'https://bloxity.io'
 
 function openLogin() {
-  const SDK = sdk()
-  try {
-    const auth = SDK?.auth
-    for (const name of ['login', 'signIn', 'showLogin', 'openLogin', 'requestLogin']) {
-      if (typeof auth?.[name] === 'function') return auth[name]()
+  // Must run synchronously inside the click handler or browsers block the standalone popup.
+  // showAuthPopup() picks the in-game modal (embedded) or the bloxity.io/auth popup (standalone);
+  // the flow finishes by firing onUserChanged, so the returned promise is ignored.
+  const auth = sdk()?.auth
+  for (const name of ['showAuthPopup', 'showAuthModal', 'showAuthWindow']) {
+    if (typeof auth?.[name] !== 'function') continue
+    try {
+      const result = auth[name]()
+      if (result && typeof result.catch === 'function') result.catch(() => {})
+      return
+    } catch (err) {
+      console.warn(`[bloxity] auth.${name} failed`, err)
     }
-    if (typeof SDK?.portal?.showLogin === 'function') return SDK.portal.showLogin()
-  } catch {
-    // Fall through to the portal page.
   }
   window.open(PORTAL_URL, '_blank', 'noopener')
 }

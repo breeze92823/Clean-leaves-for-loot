@@ -467,3 +467,7 @@ html.touch .toast { font-size: 22px; top: 18%; }
 html.touch .modal { padding: 14px 18px 20px; }
 html.touch .modal h2 { font-size: 34px; margin-bottom: 10px; }
 html.touch .modal .x { width: 48px; height: 48px; }
+
+/* Look step while the mouse is free: the highlight pauses until the world is clicked */
+.help-col.free.active:not(.done) kbd:not(.hit) { animation: none; border-color: #121212; opacity: 0.6; }
+.help-col.free.active:not(.done) .cap { color: #ffe46a; }

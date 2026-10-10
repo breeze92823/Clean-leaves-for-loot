@@ -202,7 +202,7 @@ const CONTROL_ROWS = [
   ['Zoom', ['WHEEL']],
   ['Interact', ['E']],
   ['Hotbar', ['1', '2', '3']],
-  ['Menu', ['ESC']],
+  ['Cursor', ['ESC', 'CLICK']],
 ]
 
 const BOARD_SCALE = 2 // the controls board is drawn at double the leaderboard size
@@ -254,6 +254,30 @@ function controlsBoard(parent, x, z, rot) {
   label.object.position.set(0, 8.2, 0.1)
   g.add(label.object)
   addCollider(x, z, 4.8 * BOARD_SCALE, 0.6 * BOARD_SCALE, 7.4 * BOARD_SCALE, rot)
+
+  // Attention highlight shown for a few seconds once the controls guide is finished: a pulsing
+  // glow slab behind the panel and a bobbing arrow above it.
+  const glow = mesh(new BoxGeometry(5.6, 6.4, 0.2), new MeshBasicMaterial({ color: '#ffe46a', transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending }), 0, 4.6, -0.05)
+  const arrow = mesh(new ConeGeometry(0.7, 1.4, 4), new MeshBasicMaterial({ color: '#ffe46a' }), 0, 10.4, 0.1)
+  arrow.rotation.x = Math.PI // point down at the sign
+  glow.visible = arrow.visible = false
+  g.add(glow, arrow)
+  let left = 0
+  return {
+    show(seconds = 5) {
+      left = seconds
+    },
+    update(dt, t) {
+      const on = left > 0
+      if (on) left -= dt
+      glow.visible = arrow.visible = on
+      if (!on) return
+      const fade = Math.min(1, left) // ease out over the last second
+      glow.material.opacity = (0.35 + Math.sin(t * 8) * 0.2) * fade
+      arrow.position.y = 10.4 + Math.sin(t * 6) * 0.35
+      arrow.scale.setScalar(fade)
+    },
+  }
 }
 
 // --- Worlds portal --------------------------------------------------------------
@@ -758,7 +782,8 @@ export function buildProps(scene) {
   leaderboard(root, 14, -23, -0.2, 'leaves', 'Leaves Cleaned', ['#c4ff7a', '#4cc81a'], 'Leaves', '#7aff4a')
 
   // Beside the west opening (left as you walk out to the field): the controls reference.
-  controlsBoard(root, -23, 19.5, facing(-23, 19.5, 0, 4))
+  const controls = controlsBoard(root, -23, 19.5, facing(-23, 19.5, 0, 4))
+  window.addEventListener('controls-done', () => controls.show(5)) // hud.js, after the guide is completed
 
   // East: Auras, arcade, Upgrades.
   npcs.push(stand(root, { x: AURA_STAND.x, z: AURA_STAND.z, rot: facing(AURA_STAND.x, AURA_STAND.z, 0, 4), awning: ['#ff3fd0', '#f4f4f4'], title: 'Auras', titleFill: ['#ffb4f0', '#ff4fc8', '#d61f9e'], npcLook: 'girl' }))
@@ -893,6 +918,7 @@ export function buildProps(scene) {
     pads,
     update(dt, t) {
       for (const pile of piles) pile.update(dt)
+      controls.update(dt, t)
       for (const fan of vac.userData.fans) fan.rotation.z += dt * 40
       vac.userData.fx.update(t)
       if (state.level !== twinLevel) {
