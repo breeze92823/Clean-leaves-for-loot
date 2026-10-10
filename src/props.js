@@ -30,7 +30,8 @@ import {
   SRGBColorSpace,
 } from 'three'
 import { addCollider } from './colliders.js'
-import { HUB_COLORS as C, LEAVES, VACUUMS, SELL_STAND, AURA_STAND } from './config.js'
+import { HUB_COLORS as C, LEAVES, VACUUMS, SELL_STAND, AURA_STAND, WORLD_PORTAL } from './config.js'
+import { player } from './player.js'
 import { RARITY, zoneTier } from './data/loot.js'
 import { drawText, loadIcon, panel, textLabel } from './labels.js'
 import { mesh, studMat, worldBox } from './hub.js'
@@ -297,6 +298,22 @@ function portal(parent, x, z, rot) {
   addCollider(x, z, 6.4, 1.6, 7.9, rot, 0.6)
   addCollider(x + Math.sin(rot) * 0.6, z + Math.cos(rot) * 0.6, 6.8, 3.4, 0.3, rot)
   addCollider(x + Math.sin(rot) * 0.4, z + Math.cos(rot) * 0.4, 5.8, 2.4, 0.6, rot)
+  const lock = textLabel(`Unlock at Level ${WORLD_PORTAL.unlockLevel}`, {
+    height: 1.4,
+    px: 80,
+    fill: ['#ffb0b0', '#ff4a4a'],
+    stroke: '#3a0000',
+  })
+  lock.object.position.set(0, 3.7, 3)
+  lock.object.visible = false
+  g.add(lock.object)
+  return {
+    update() {
+      const dx = player.position.x - x
+      const dz = player.position.z - z
+      lock.object.visible = state.level < WORLD_PORTAL.unlockLevel && dx * dx + dz * dz < WORLD_PORTAL.near ** 2
+    },
+  }
 }
 
 // --- Arcade cabinet -------------------------------------------------------------
@@ -775,7 +792,7 @@ export function buildProps(scene) {
   const npcs = []
 
   // North: Worlds portal, Sell Loot with the three leaderboards behind it.
-  portal(root, -17, -21, facing(-17, -21, 0, 4))
+  const worldPortal = portal(root, -17, -21, facing(-17, -21, 0, 4))
   npcs.push(stand(root, { x: SELL_STAND.x, z: SELL_STAND.z, rot: 0.08, awning: ['#2fd14a', '#f4f4f4'], title: 'Sell Loot', titleFill: ['#f6ff7a', '#b6f22a', '#5fc81a'] }))
   leaderboard(root, -6, -22.5, 0.05, 'power', 'Power', ['#ffe48a', '#f6a21a'], 'Power', '#ffb23a')
   leaderboard(root, 4.5, -24, 0, 'rebirths', 'Rebirths', ['#ff8a8a', '#e2222a'], 'Rebirths', '#ff5a5a')
@@ -919,6 +936,7 @@ export function buildProps(scene) {
     update(dt, t) {
       for (const pile of piles) pile.update(dt)
       controls.update(dt, t)
+      worldPortal.update()
       for (const fan of vac.userData.fans) fan.rotation.z += dt * 40
       vac.userData.fx.update(t)
       if (state.level !== twinLevel) {
