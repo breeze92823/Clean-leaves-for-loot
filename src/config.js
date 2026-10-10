@@ -349,7 +349,7 @@ export const VACUUM_RARITY = {
   Legendary: { text: '#ffc21a', tile: ['#fffbe8', '#ffd98a'], glow: '#ffc21a', sparkles: 26 },
   Mythic: { text: ['#c02aff', '#3a5aff', '#1ad8ff'], tile: ['#f4f0ff', '#a8b0ff'], glow: '#6a7aff', sparkles: 34 },
 }
-export const TWIN_STAND = { x: -6.5, z: 12 } // the Twin Turbine showcase in props.js (E to buy)
+export const TWIN_STAND = { x: -16.5, z: 24 } // the Twin Turbine showcase in props.js (E to buy)
 export const VACUUM_STAND = { x: 2, z: 12 } // matches the 'Vacuums' stand in props.js
 
 // Auras window (auras.js): one aura is equipped at a time and multiplies the total blower

@@ -9,7 +9,8 @@ import { TWIN_STAND, VACUUMS, VACUUM_STAND } from './config.js'
 import { createTurbineSound } from './turbineSound.js'
 
 const turbineSound = createTurbineSound()
-const TWIN_HEAR = 4 // m from the Twin Turbine showcase where its roar starts (full volume at 1.5 m)
+const TWIN_HEAR = 8 // m from the Twin Turbine showcase where its roar starts (full volume at 3 m)
+const TWIN_FULL = 3
 const TWIN_REACH = 4.5 // m from the Twin Turbine showcase to be offered it
 const OPEN = 5.5 // m from the stand to be offered the window
 const CLOSE = 9 // m past which an open window shuts
@@ -48,7 +49,7 @@ export function updateVacuums() {
 
   // The Twin Turbine showcase sells straight from its label: E buys (if affordable) and equips.
   const dt = Math.hypot(player.position.x - TWIN_STAND.x, player.position.z - TWIN_STAND.z)
-  turbineSound.set(Math.min(1, Math.max(0, (TWIN_HEAR - dt) / (TWIN_HEAR - 1.5))))
+  turbineSound.set(Math.min(1, Math.max(0, (TWIN_HEAR - dt) / (TWIN_HEAR - TWIN_FULL))))
   if (dt < TWIN_REACH) {
     const v = VACUUMS.find((x) => x.id === 'twin')
     const owned = state.vacuumOwned.includes('twin')
