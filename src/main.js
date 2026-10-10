@@ -26,8 +26,13 @@ import { attachBlower, setHeldVacuum, animateHeldVacuum } from './avatar/blower.
 import { disposeAnimator, makeAnimator } from './avatar/animator.js'
 import { initNet, sendPose, syncAvatar } from './net.js'
 import { createRemotePlayers } from './remotePlayers.js'
+import { createLoading, markLoaded } from './loading.js'
+import { createTutorial } from './tutorial.js'
+import { createLoginButton } from './login.js'
 
 // --- Bloxity + player state -----------------------------------------------
+createLoading()
+createLoginButton()
 bloxity.init()
 resetPlayer(SPAWN, SPAWN_FACING)
 syncYawToPlayer()
@@ -90,6 +95,7 @@ leaves.onPileCleared(() => {
   notify()
 })
 createHud({ showMenu: bloxity.showMenu })
+const tutorial = createTutorial(scene, loot)
 const remotes = createRemotePlayers(scene)
 initNet() // saves/loads progress and joins the shared room (no-op without a server)
 
@@ -139,13 +145,17 @@ setAvatar(buildDefaultCharacter()) // visible immediately; replaced once the rig
 async function loadAvatar() {
   // The SDK fires twice per change (optimistic + confirmed); only the newest load may land.
   const mine = ++generation
-  const group = await loadBaseCharacter()
-  if (mine !== generation) return
-  const equipped = bloxity.authState.user ? bloxity.getEquippedAvatar() : null
-  await attachEquippedAccessories(group, equipped, { skinTextureUrl: bloxity.getSkinTextureUrl() })
-  if (mine !== generation) return
-  applyProportions(group, bloxity.getProportions())
-  setAvatar(group)
+  try {
+    const group = await loadBaseCharacter()
+    if (mine !== generation) return
+    const equipped = bloxity.authState.user ? bloxity.getEquippedAvatar() : null
+    await attachEquippedAccessories(group, equipped, { skinTextureUrl: bloxity.getSkinTextureUrl() })
+    if (mine !== generation) return
+    applyProportions(group, bloxity.getProportions())
+    setAvatar(group)
+  } finally {
+    if (mine === generation) markLoaded('avatar')
+  }
 }
 
 let signedIn = null
@@ -156,11 +166,21 @@ bloxity.subscribeAuth((s) => {
     loadAvatar() // also runs once at start to swap in the real rig
   }
 })
+// The SDK event can precede the skin URL / proportions being current, so resend shortly after too.
+let resyncTimer = 0
+function syncAvatarSoon() {
+  syncAvatar()
+  clearTimeout(resyncTimer)
+  resyncTimer = setTimeout(syncAvatar, 1000)
+}
 bloxity.onAvatarChanged(() => {
   loadAvatar()
-  syncAvatar()
+  syncAvatarSoon()
 })
-bloxity.onProportionsChanged(() => applyProportions(avatar, bloxity.getProportions()))
+bloxity.onProportionsChanged(() => {
+  applyProportions(avatar, bloxity.getProportions())
+  syncAvatarSoon()
+})
 
 bloxity.onSetting((key, value) => {
   if (key === 'graphics_quality') renderer.shadowMap.enabled = (GRAPHICS_PRESETS[value] ?? GRAPHICS_PRESETS.High).shadows
@@ -234,6 +254,7 @@ renderer.setAnimationLoop(() => {
   updateVacuums()
   updateAuras()
   resolveInteract()
+  tutorial.update(clock.elapsedTime)
 
   fallingLeaves.update(dt, clock.elapsedTime, player.position)
   props.update(dt, clock.elapsedTime)
@@ -244,6 +265,7 @@ renderer.setAnimationLoop(() => {
   lights.follow(player.position.x, player.position.z)
   renderer.render(scene, camera)
   bloxity.notifyFirstFrame()
+  markLoaded('scene')
 })
 
 window.addEventListener('beforeunload', bloxity.teardown)

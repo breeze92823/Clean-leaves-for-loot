@@ -149,24 +149,13 @@ function stand(parent, { x, z, y = 0, rot, awning, title, titleFill, titleStroke
 
 // --- Leaderboards ------------------------------------------------------------------
 
-const BOARD_NAMES = {
-  power: ['LeafLord', 'RakeQueen', 'PileHopper', 'Mapleton', 'GustyGus', 'Oakley_7', 'Breezy', 'AcornAce', 'Birchy', 'Fernando'],
-  rebirths: ['RakeQueen', 'Mapleton', 'TwigTwister', 'Oakley_7', 'LeafLord', 'AcornAce', 'Sprout22', 'Birchy', 'PineappleP', 'Fernando'],
-  leaves: ['RakeQueen', 'Sprout22', 'LeafLord', 'Birchy', 'TwigTwister', 'Fernando', 'GustyGus', 'Breezy', 'Mapleton', 'PileHopper'],
-}
-const BOARD_VALUES = {
-  power: ['1.24Td', '1.15Td', '512Dd', '498Dd', '353Dd', '315Dd', '282Dd', '240Dd', '211Dd', '192Dd'],
-  rebirths: ['56', '45', '42', '41', '41', '40', '40', '40', '40', '40'],
-  leaves: ['19.8Td', '13.5Td', '5.21Td', '4.11Td', '3.88Td', '3.66Td', '2.7Td', '2.57Td', '2.5Td', '2.46Td'],
-}
-
 function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valueColor) {
   const g = placed(parent, x, 0, z, rot)
   const wood = std(C.boardWood)
   for (const sx of [-2.0, 2.0]) g.add(mesh(new BoxGeometry(0.4, 2, 0.4), wood, sx, 1, 0))
   g.add(mesh(new BoxGeometry(4.8, 5.6, 0.4), wood, 0, 4.6, 0))
-  // Placeholder rows until the server's leaderboard arrives (net.js); then the live top 10.
-  let rows = BOARD_NAMES[key].map((name, i) => ({ name, value: BOARD_VALUES[key][i] }))
+  // Empty until the server's leaderboard arrives (net.js); then the live top 10.
+  let rows = []
   const board = panel(
     512,
     600,
@@ -191,8 +180,7 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
   )
   onLeaderboard((boards) => {
     const live = boards[key]
-    if (!live?.length) return
-    rows = live.map((r) => ({ name: r.name, value: shortMoney(r.value), me: r.id === net.sessionId }))
+    rows = (live ?? []).map((r) => ({ name: r.name, value: shortMoney(r.value), me: r.id === net.sessionId }))
     board.repaint()
   })
   board.object.position.set(0, 4.6, 0.21)

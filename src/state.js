@@ -1,6 +1,6 @@
 // Live game state shared by the HUD, loot, selling and the blower. Plain object + subscribe;
 // mutate through the helpers (or call notify() after editing `state`) so the HUD re-renders.
-import { AURAS, HUD_START, INDEX, LEVEL, POWER_GAIN, REBIRTH, UPGRADES, VACUUMS } from './config.js'
+import { AURAS, DAILY, HUD_START, INDEX, LEVEL, POWER_GAIN, REBIRTH, UPGRADES, VACUUMS } from './config.js'
 
 const AURA_BOOST = Object.fromEntries(AURAS.map((a) => [a.id, a.boost]))
 const VAC_POWER = Object.fromEntries(VACUUMS.map((v) => [v.id, v.power]))
@@ -22,8 +22,25 @@ export const state = {
   aurasOpen: false, // Auras window shown
   auraOwned: [], // ids bought or claimed (auras.js)
   aura: null, // id equipped
+  dailyOpen: false, // Daily Login window shown
+  dailyDay: 0, // last claimed day of the 7-day streak (0 = none), saved (daily.js)
+  dailyClaimedAt: 0, // epoch ms of that claim, saved
+  boosts: { power: 0, cash: 0 }, // timed x2 boosts: epoch ms each one expires, saved
   upgrades: { range: 0, agility: 0, capacity: 0, walk: 0 }, // bought levels (upgrades.js)
+  tutorialStep: 0, // onboarding progress, saved; TUTORIAL.steps = finished (tutorial.js)
+  tutorialReady: false, // the server has said whether this account is new (net.js); never shown before
 }
+
+// Wall clock, corrected to the server's once it has told us the time (net.js), so the daily-login day
+// and boost expiry don't depend on the player's own clock setting.
+let clockOffset = 0
+export const now = () => Date.now() + clockOffset
+export const setServerTime = (ms) => Number.isFinite(ms) && (clockOffset = ms - Date.now())
+
+// Timed boosts (DAILY rewards): x DAILY.boostMult on total power / sell payouts while running.
+export const boostLeft = (kind) => Math.max(0, (state.boosts[kind] ?? 0) - now())
+export const boostActive = (kind) => boostLeft(kind) > 0
+export const boostMultiplier = (kind) => (boostActive(kind) ? DAILY.boostMult : 1)
 
 // Counts played time; notifies only every 10 s so the HUD and saves aren't churned each tick.
 let playFrac = 0
@@ -59,7 +76,7 @@ export function blowerPower() {
 
 // Trained power plus the equipped vacuum (VACUUMS in config.js); this is what the HUD shows.
 // The equipped aura multiplies it (AURAS in config.js).
-export const totalPower = () => (state.power + (VAC_POWER[state.vacuum] ?? 0)) * (AURA_BOOST[state.aura] ?? 1)
+export const totalPower = () => (state.power + (VAC_POWER[state.vacuum] ?? 0)) * (AURA_BOOST[state.aura] ?? 1) * boostMultiplier('power')
 
 // Rebirth boosts (rebirth.js): trained-power gain and sell payouts grow with every rebirth.
 // `n` defaults to the player's own count; pass n + 1 to preview the next one.

@@ -4,7 +4,7 @@ import { player } from './player.js'
 import { offer } from './interact.js'
 import { SELL_STAND } from './config.js'
 import { sfx } from './settings.js'
-import { cashMultiplier, notify, state, toast } from './state.js'
+import { boostMultiplier, cashMultiplier, notify, state, toast } from './state.js'
 
 const OPEN = 5.5 // m from the stand to be offered the window
 const CLOSE = 9 // m past which an open window shuts
@@ -43,7 +43,7 @@ export function groupBag(bag) {
 }
 
 export const bagValue = (bag) => bag.reduce((n, it) => n + it.value, 0)
-export const payout = (value) => Math.round(value * cashMultiplier())
+export const payout = (value) => Math.round(value * cashMultiplier() * boostMultiplier('cash'))
 
 function pay(items) {
   const gain = payout(bagValue(items))

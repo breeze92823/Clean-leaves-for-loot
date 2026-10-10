@@ -388,6 +388,28 @@ export const TIMERS = {
 
 // The top-left gift tile: this vacuum is free once the player has spent `playSeconds` in game (saved).
 export const FREE_GIFT = { vacuum: 'packgun', playSeconds: 50 * 60 }
+// Daily Login window (daily.js, the HUD's Daily tile): one claim per UTC day, days 1-7 in a row, then the
+// streak starts over. Missing a day restarts it at day 1 when `resetOnMiss`. Rewards: `power` = trained
+// power, `cash`, `boosts` = [{ kind: 'power' | 'cash', minutes }] (x2 while active, extend if stacked) and
+// `vacuum` (owned for free, no level needed; equipped if it beats the current one). `look` paints the tile.
+export const DAILY = {
+  resetOnMiss: true,
+  boostMult: 2,
+  rewards: [
+    { rarity: 'Common', boosts: [{ kind: 'power', minutes: 15 }], look: ['#ffffff', '#b4b8c0'] },
+    { rarity: 'Uncommon', cash: 58600, look: ['#2a7bff', '#18c0a0', '#7a2aff'] },
+    { rarity: 'Rare', boosts: [{ kind: 'cash', minutes: 20 }], look: ['#2aa8ff', '#68d4ff'] },
+    { rarity: 'Rare', power: 38, look: ['#2aa8ff', '#7ae0ff'] },
+    { rarity: 'Epic', boosts: [{ kind: 'power', minutes: 30 }], cash: 117000, look: ['#c02aff', '#7a1ae0'] },
+    { rarity: 'Legendary', power: 76, boosts: [{ kind: 'cash', minutes: 30 }], look: ['#ffc21a', '#ff9a14'] },
+    { rarity: 'Mythic', vacuum: 'twin', look: ['#ff6a2a', '#e8283a'] },
+  ],
+}
+// New-player tutorial (tutorial.js; the step is saved with the account by net.js, and the backend's
+// constants.ts TUTORIAL_DONE_STEP must equal `steps`). 0 hold click to train to `power`, 1 blow leaves in
+// Zone 1 until loot appears, 2 collect loot until the Bag is worth enough for `vacuum`, 3 go to the Sell
+// Loot stall, 4 press Sell All, 5 close the window, 6 go to the Vacuums stall, 7 buy `vacuum`, 8 done.
+export const TUTORIAL = { steps: 8, power: 30, vacuum: 'suburban', completeMs: 3500 }
 export const FONT_FAMILY = 'Fredoka'
 
 export const MATERIAL_PBR = {

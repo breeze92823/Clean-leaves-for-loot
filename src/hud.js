@@ -3,7 +3,7 @@
 // Plain DOM over the canvas. Menu tiles open a placeholder panel; purchase
 // buttons show a toast (no store yet).
 import './hud.css'
-import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, FREE_GIFT, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
+import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, FREE_GIFT, DAILY, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
 import { player, respawn } from './player.js'
 import { ICONS, auraIcon, vacuumIcon } from './icons.js'
 import { mmss } from './timers.js'
@@ -11,7 +11,7 @@ import { ITEM_CATALOG, ITEM_INFO, RARITY, RARITY_ROW_BG } from './data/loot.js'
 import { closeIndex, indexProgress, openIndex } from './index.js'
 import { createIndexViews } from './indexView.js'
 import { playerScreen } from './screenPos.js'
-import { addPlaySeconds, state, subscribe, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier } from './state.js'
+import { addPlaySeconds, state, subscribe, setToast, onPowerGain, totalPower, cashMultiplier, powerGainMultiplier, boostActive, boostLeft } from './state.js'
 import { closeRebirth, openRebirth, rebirthLevel, rebirthProgress, tryRebirth } from './rebirth.js'
 import { bagValue, closeSell, groupBag, isLocked, payout, sellAll, sellItem, toggleLock, unlockedBag } from './sell.js'
 import { buyUpgrade, closeUpgrades, upgradeCost } from './upgrades.js'
@@ -20,6 +20,7 @@ import { createVacuumViews } from './vacuumView.js'
 import { settings, setSettings, subscribeSettings, sfx } from './settings.js'
 import { closeAuras, pickAura } from './auras.js'
 import { createAuraViews } from './auraView.js'
+import { claimDaily, closeDaily, dailyStatus, openDaily } from './daily.js'
 
 const REF_W = 1920
 const REF_H = 991
@@ -47,6 +48,25 @@ function rarityLabel(rarity) {
   return [...rarity].map((ch, i) => `<span style="color:${c[Math.min(c.length - 1, Math.floor((i / rarity.length) * c.length))]}">${ch}</span>`).join('')
 }
 
+// 3725 s -> 1:02:05
+const hms = (sec) => {
+  const t = Math.max(0, Math.ceil(sec))
+  return `${Math.floor(t / 3600)}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
+}
+
+// Daily Login tile text, e.g. "76 Power + 2x Cash 30m" or "$58.6K".
+function dailyLabel(r) {
+  const kind = { power: 'Power', cash: 'Cash' }
+  return [
+    r.power && `${short(r.power)} Power`,
+    ...(r.boosts ?? []).map((b) => `${DAILY.boostMult}x ${kind[b.kind]} ${b.minutes}m`),
+    r.cash && `$${short(r.cash)}`,
+  ]
+    .filter(Boolean)
+    .join(' + ')
+}
+const dailyIcon = (r) => (r.vacuum ? '<canvas></canvas>' : r.power || (r.boosts ?? []).some((b) => b.kind === 'power') ? ICONS.tornado : ICONS.cash)
+
 function template() {
   return `
   <div class="anchor a-tl">
@@ -62,7 +82,7 @@ function template() {
     </div>
     <button class="gift pressable" data-act="gift">
       <div class="t o" data-bind="gift"></div>
-      <div class="gun"><canvas></canvas>${ICONS.gun}</div>
+      <div class="gun"><canvas></canvas></div>
       <div class="gname o-thin">${VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).name}</div>
       <div class="gpow o">${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).power)} Power</div>
       <div class="gprice o"><s>$${short(VACUUMS.find((v) => v.id === FREE_GIFT.vacuum).cost)}</s><b>FREE</b></div>
@@ -72,7 +92,7 @@ function template() {
       <button class="tile pressable" data-act="openIndex">${icon('book')}<span class="o">Index</span></button>
       <button class="tile pressable" data-panel="Config">${icon('gear')}<span class="o">Config</span></button>
       <button class="tile pressable" data-act="openRebirth">${icon('rebirth')}<span class="o">Rebirth</span><b class="pct o-thin" data-bind="rebirth"></b></button>
-      <button class="tile pressable" data-panel="Daily">${icon('calendar')}<span class="o">Daily</span><b class="alert">!</b></button>
+      <button class="tile pressable" data-act="openDaily">${icon('calendar')}<span class="o">Daily</span><b class="alert" data-bind="dailyAlert">!</b></button>
     </div>
   </div>
 
@@ -101,13 +121,9 @@ function template() {
   </div>
 
   <div class="anchor a-tr">
-  </div>
-
-  <div class="anchor a-bc">
-    <div class="hotbar">
-      <button class="slot active" data-slot="0">${icon('grid')}</button>
-      <button class="slot" data-slot="1">${icon('key')}</button>
-      <button class="slot" data-slot="2">${icon('vacuumTool')}</button>
+    <div class="boosts">
+      <div class="boost-pill power" data-bind="boostPower"></div>
+      <div class="boost-pill cash" data-bind="boostCash"></div>
     </div>
   </div>
 
@@ -311,6 +327,30 @@ function template() {
       </div>
     </div>
   </div>
+  <div class="anchor a-cc">
+    <div class="upg dly">
+      <div class="upg-head">
+        <i class="dly-cal">${ICONS.calendar}</i>
+        <h2 class="o">Daily Login!</h2>
+        <button class="upg-x pressable" data-act="closeDaily"><svg viewBox="0 0 40 40"><path d="M11 11 L29 29 M29 11 L11 29" stroke="#121212" stroke-width="10" stroke-linecap="round"/><path d="M11 11 L29 29 M29 11 L11 29" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="upg-body">
+        <div class="dly-grid">
+          ${DAILY.rewards
+            .map(
+              (r, i) => `<button class="dly-tile pressable${i === DAILY.rewards.length - 1 ? ' last' : ''}" data-day="${i + 1}" style="--c1:${r.look[0]};--c2:${r.look[1]};--c3:${r.look[2] ?? r.look[1]}">
+            <div class="dly-day o">Day ${i + 1}</div>
+            <div class="dly-rar o-thin">${rarityLabel(r.rarity)}</div>
+            <div class="dly-ico">${dailyIcon(r)}<b class="dly-claim o">Claim!</b><b class="dly-done">&#10003;</b></div>
+            <div class="dly-txt o${r.vacuum ? ' big' : ''}">${r.vacuum ? VACUUMS.find((v) => v.id === r.vacuum).name : dailyLabel(r)}</div>
+          </button>`,
+            )
+            .join('')}
+        </div>
+        <div class="dly-foot o" data-bind="dailyFoot"></div>
+      </div>
+    </div>
+  </div>
   <div class="levelup idxup"><div class="levelup-t o">INDEX BOOST!</div><div class="levelup-s o" data-bind="idxUpSub"></div></div>
   <div class="levelup"><div class="levelup-t o">LEVEL UP!</div><div class="levelup-s o" data-bind="levelUpSub"></div></div>
   <div class="modal-back"><div class="modal"><button class="x o-thin">X</button><h2 class="o"></h2><p>Coming soon!</p></div></div>
@@ -405,22 +445,21 @@ export function createHud({ showMenu }) {
   })
   window.addEventListener('wheel', (e) => e.target.tagName === 'CANVAS' && tick1('zoom'), { passive: true })
 
-  const slots = [...root.querySelectorAll('.slot')]
-  const selectSlot = (i) => slots.forEach((s, k) => s.classList.toggle('active', k === i))
-
   root.addEventListener('click', (e) => {
     const el = e.target.closest('button')
     if (!el) return
     if (el.dataset.panel === 'Config') openConfig()
     else if (el.dataset.panel) openPanel(el.dataset.panel)
     else if (el.dataset.buy) say(`${el.dataset.buy}: store coming soon!`)
-    else if (el.dataset.slot) selectSlot(+el.dataset.slot)
     else if (el.dataset.lock) toggleLock(el.dataset.lock)
     else if (el.dataset.sell === 'all') sellAll()
     else if (el.dataset.sell) sellItem(el.dataset.sell)
     else if (el.dataset.upgrade) buyUpgrade(el.dataset.upgrade)
     else if (el.dataset.vacuum) pickVacuum(el.dataset.vacuum)
     else if (el.dataset.aura) pickAura(el.dataset.aura)
+    else if (el.dataset.day) dailyTile(+el.dataset.day)
+    else if (el.dataset.act === 'openDaily') openDaily()
+    else if (el.dataset.act === 'closeDaily') closeDaily()
     else if (el.dataset.act === 'openIndex') openIndex()
     else if (el.dataset.act === 'closeIndex') closeIndex()
     else if (el.dataset.act === 'openRebirth') openRebirth()
@@ -449,9 +488,8 @@ export function createHud({ showMenu }) {
       closeAuras()
       closeRebirth()
       closeIndex()
+      closeDaily()
     }
-    const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(e.code)
-    if (n >= 0) selectSlot(n)
   })
 
   setToast(say)
@@ -576,6 +614,31 @@ export function createHud({ showMenu }) {
     bind.idxFill.style.width = `${(done / step) * 100}%`
     bind.idxBar.textContent = `${done}/${step} Collected`
   }
+  // Daily Login: the tile for the day that is up claims it; the others explain why not.
+  const dlyPanel = root.querySelector('.dly')
+  const dlyTiles = [...dlyPanel.querySelectorAll('.dly-tile')]
+  const dlyViews = createVacuumViews(
+    DAILY.rewards.flatMap((r, i) => (r.vacuum ? [{ id: r.vacuum, rarity: r.rarity, canvas: dlyTiles[i].querySelector('canvas') }] : [])),
+    null,
+  )
+  function dailyTile(day) {
+    const { claimable, next, claimed } = dailyStatus()
+    if (claimable && day === next) claimDaily()
+    else if (day <= claimed) say('Already claimed!')
+    else say(`Day ${day} unlocks after day ${day - 1}!`)
+  }
+  function renderDaily() {
+    const { claimable, next, claimed, msLeft } = dailyStatus()
+    bind.dailyAlert.style.display = claimable ? '' : 'none'
+    dlyPanel.classList.toggle('open', s.dailyOpen)
+    dlyViews.setActive(s.dailyOpen)
+    if (!s.dailyOpen) return
+    dlyTiles.forEach((el, i) => {
+      el.classList.toggle('claimed', i < claimed)
+      el.classList.toggle('current', claimable && i + 1 === next)
+    })
+    bind.dailyFoot.textContent = claimable ? 'Your reward is ready!' : `Next reward in ${hms(msLeft / 1000)}`
+  }
   const rebPanel = root.querySelector('.reb')
   const mult = (x) => `x${+x.toFixed(2)}`
   function renderRebirth() {
@@ -670,6 +733,7 @@ export function createHud({ showMenu }) {
   function render() {
     renderIndexBoost()
     renderLevelUp()
+    renderDaily()
     renderRebirth()
     renderIndex()
     renderAuras()
@@ -702,6 +766,25 @@ export function createHud({ showMenu }) {
     const left = FREE_GIFT.playSeconds - state.playSeconds
     bind.gift.textContent = left > 0 ? `FREE IN ${mmss(left)}` : 'CLAIM!'
     giftBtn.classList.toggle('ready', left <= 0)
+    tickBoosts()
+    if (s.dailyOpen || dailyWas !== dailyStatus().claimable) renderDaily()
+    dailyWas = dailyStatus().claimable
+  }
+  // Active x2 boosts: a pill with the time left; totals (Power, payouts) re-render when one ends.
+  let dailyWas = dailyStatus().claimable
+  let boostSig = ''
+  function tickBoosts() {
+    for (const [kind, name] of [['power', 'Power'], ['cash', 'Cash']]) {
+      const el = bind[kind === 'power' ? 'boostPower' : 'boostCash']
+      const left = boostLeft(kind)
+      el.style.display = left > 0 ? '' : 'none'
+      if (left > 0) el.textContent = `${DAILY.boostMult}x ${name} ${hms(left / 1000)}`
+    }
+    const sig = `${boostActive('power')}${boostActive('cash')}`
+    if (sig !== boostSig) {
+      boostSig = sig
+      render()
+    }
   }
   // "+N Power" pop floats up from the player's chest on every training tick (scattered randomly
   // around the player so rapid ticks don't stack), like the +Strength pop in the Chop Trees game.
@@ -724,7 +807,7 @@ export function createHud({ showMenu }) {
   const syncWindowOpen = () =>
     document.body.classList.toggle(
       'win-open',
-      s.sellOpen || s.upgradesOpen || s.vacuumsOpen || s.rebirthOpen || s.indexOpen || s.aurasOpen || back.classList.contains('open') || cfg.classList.contains('open'),
+      s.sellOpen || s.dailyOpen || s.upgradesOpen || s.vacuumsOpen || s.rebirthOpen || s.indexOpen || s.aurasOpen || back.classList.contains('open') || cfg.classList.contains('open'),
     )
   new MutationObserver(syncWindowOpen).observe(back, { attributes: true, attributeFilter: ['class'] })
   new MutationObserver(syncWindowOpen).observe(cfg, { attributes: true, attributeFilter: ['class'] })

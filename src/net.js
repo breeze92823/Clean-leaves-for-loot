@@ -3,13 +3,14 @@
 // the leaderboards. Never throws and never blocks play: with no server (or an unreachable one)
 // the game simply runs offline on local state.
 import { Client } from '@colyseus/sdk'
-import { GAME_SLUG, NET, SERVER_URL } from './config.js'
+import { DEV_MODE, GAME_SLUG, NET, SERVER_URL, TUTORIAL } from './config.js'
 import { authState, sdk, getEquippedAvatar, getProportions, getSkinTextureUrl, subscribeAuth } from './bloxity.js'
-import { notify, state, subscribe } from './state.js'
+import { notify, setServerTime, state, subscribe } from './state.js'
 import { applyUpgrades } from './upgrades.js'
+import { markLoaded } from './loading.js'
 
 // The keys the server persists (backend src/sanitize.ts).
-const SAVED = ['cash', 'power', 'leaves', 'level', 'xp', 'xpNext', 'rebirths', 'bag', 'sellLocked', 'discovered', 'vacuumOwned', 'vacuum', 'playSeconds', 'giftClaimed', 'auraOwned', 'aura', 'upgrades']
+const SAVED = ['cash', 'power', 'leaves', 'level', 'xp', 'xpNext', 'rebirths', 'bag', 'sellLocked', 'discovered', 'vacuumOwned', 'vacuum', 'playSeconds', 'giftClaimed', 'auraOwned', 'aura', 'upgrades', 'dailyDay', 'dailyClaimedAt', 'boosts', 'tutorialStep']
 const AVATAR_MAX = 3000 // backend AVATAR_MAX_LEN
 
 export const net = {
@@ -48,7 +49,7 @@ const GUEST = guestId()
 
 function identity() {
   const u = authState.user
-  const id = u && (u.id ?? u.userId ?? u.uid)
+  const id = u && (u._id || u.id || u.userId || u.uid)
   if (!id) return { userId: GUEST, username: authState.guest?.displayName || authState.guest?.username || 'Guest' }
   return { userId: String(id), username: String(u.displayName || u.username || u.name || 'Player') }
 }
@@ -101,6 +102,7 @@ function scheduleSave() {
 
 function hydrate(doc) {
   for (const k of SAVED) if (doc[k] !== undefined) state[k] = doc[k]
+  state.boosts = { power: 0, cash: 0, ...state.boosts }
   applyUpgrades()
   lastSaved = snapshot() // what the server holds: don't echo it straight back
   notify()
@@ -154,17 +156,28 @@ function attach(room) {
   net.connected = true
   room.onMessage('progress', (doc) => {
     net.hydrated = true
-    hydrate(doc ?? {})
+    setServerTime(doc?.serverTime)
+    // A saved account never gets the tutorial: the server sends tutorialStep = finished for one that
+    // predates it, and an older server that sends nothing is treated the same way.
+    hydrate({ ...doc, tutorialStep: doc?.tutorialStep ?? TUTORIAL.steps })
+    state.tutorialReady = true
+    notify()
+    markLoaded('net')
   })
-  room.onMessage('noProgress', () => {
+  room.onMessage('noProgress', (msg) => {
+    setServerTime(msg?.serverTime)
     // New account, guest or no database: keep what we have and push it as the first save.
     net.hydrated = true
+    state.tutorialReady = true // a new account (or guest): the tutorial starts from the local step
+    notify()
+    markLoaded('net')
     lastSaved = ''
     if (!isGuest()) saveNow()
   })
   room.onMessage('serverError', () => {
     // The save exists but could not be read: never overwrite it.
     net.hydrated = false
+    markLoaded('net')
     console.warn('[net] server could not read the saved progress; saving is off for this session')
   })
   room.onMessage('leaderboard', (rows) => {
@@ -204,6 +217,11 @@ async function connect() {
     attach(await client.joinOrCreate('world', { ...id, avatar: avatarJson() }))
   } catch (err) {
     console.warn('[net] could not reach the server; playing offline', err?.message ?? err)
+    if (DEV_MODE && !state.tutorialReady) {
+      state.tutorialReady = true // no server in dev: can't tell old accounts from new, so show it
+      notify()
+    }
+    markLoaded('net')
     setTimeout(connect, 10000)
   } finally {
     connecting = false
@@ -211,7 +229,11 @@ async function connect() {
 }
 
 export function initNet() {
-  if (!SERVER_URL && !canResolve()) return console.info('[net] no server configured; playing offline')
+  if (!SERVER_URL && !canResolve()) {
+    markLoaded('net')
+    state.tutorialReady = true // offline play has no saved accounts: everyone is new
+    return console.info('[net] no server configured; playing offline')
+  }
   subscribe(() => {
     scheduleSave()
     syncEquipment()
