@@ -293,6 +293,8 @@ export const ANIM = {
 export const POWER_GAIN = { perTick: 1, interval: 1 }
 // Level bar: reaching level N+1 needs xpPerLevel * N xp (25, 50, 75, ...), as in the Chop Trees reference.
 export const LEVEL = { xpPerLevel: 25 }
+// Worlds portal: shows "Unlock at Level N" when the player is within `near` units while below `unlockLevel`.
+export const WORLD_PORTAL = { unlockLevel: 200, near: 9 }
 // Rebirth (rebirth.js, the HUD's Rebirth tile): once level >= level * levelGrowth^rebirths the player
 // may reset level and trained power for permanent boosts: trained-power gain x(1 + n * powerPer)
 // and sell payouts x(1 + n * cashPer). Cash, vacuums, auras and upgrades are kept.
