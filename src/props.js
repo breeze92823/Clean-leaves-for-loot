@@ -30,13 +30,13 @@ import {
   SRGBColorSpace,
 } from 'three'
 import { addCollider } from './colliders.js'
-import { HUB_COLORS as C, LEAVES, TIMERS, VACUUMS, SELL_STAND, AURA_STAND } from './config.js'
+import { HUB_COLORS as C, LEAVES, VACUUMS, SELL_STAND, AURA_STAND } from './config.js'
 import { RARITY, zoneTier } from './data/loot.js'
 import { drawText, loadIcon, panel, textLabel } from './labels.js'
 import { mesh, studMat, worldBox } from './hub.js'
 import { plankTexture, stripeTexture, stripeTextureV } from './textures.js'
 import { shortMoney, state } from './state.js'
-import { mmss, remaining } from './timers.js'
+import { net, onLeaderboard } from './net.js'
 import { createTrainingPile } from './trainingPile.js'
 
 const std = (color, extra = {}) => new MeshStandardMaterial({ color, roughness: 0.8, ...extra })
@@ -165,29 +165,36 @@ function leaderboard(parent, x, z, rot, key, title, titleFill, valueHeader, valu
   const wood = std(C.boardWood)
   for (const sx of [-2.0, 2.0]) g.add(mesh(new BoxGeometry(0.4, 2, 0.4), wood, sx, 1, 0))
   g.add(mesh(new BoxGeometry(4.8, 5.6, 0.4), wood, 0, 4.6, 0))
-  const names = BOARD_NAMES[key]
-  const values = BOARD_VALUES[key]
+  // Placeholder rows until the server's leaderboard arrives (net.js); then the live top 10.
+  let rows = BOARD_NAMES[key].map((name, i) => ({ name, value: BOARD_VALUES[key][i] }))
   const board = panel(
     512,
     600,
     (ctx, w, h) => {
       ctx.fillStyle = C.boardPanel
       ctx.fillRect(0, 0, w, h)
-      for (let i = 0; i < names.length; i++) {
+      for (let i = 0; i < rows.length; i++) {
         ctx.fillStyle = 'rgba(0,0,0,0.12)'
         ctx.fillRect(0, 86 + i * 50 + 22, w, 4)
       }
       drawText(ctx, 'Player', 140, 34, { px: 30, fill: '#62b4ff', strokeW: 3, shadow: false })
       drawText(ctx, valueHeader, 400, 34, { px: 30, fill: valueColor, strokeW: 3, shadow: false })
       const rankFill = ['#ffd84a', '#d8e2ee', '#e89a5a']
-      names.forEach((n, i) => {
+      rows.forEach((r, i) => {
         const y = 86 + i * 50
-        drawText(ctx, `#${i + 1} @${n}`, 40, y, { px: 30, fill: rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
-        drawText(ctx, values[i], 400, y, { px: 30, fill: '#ffffff', strokeW: 3, shadow: false })
+        const name = r.name.length > 12 ? `${r.name.slice(0, 11)}…` : r.name
+        drawText(ctx, `#${i + 1} @${name}`, 40, y, { px: 30, fill: r.me ? '#7aff4a' : rankFill[i] ?? '#ffffff', strokeW: 3, shadow: false, align: 'left' })
+        drawText(ctx, r.value, 400, y, { px: 30, fill: '#ffffff', strokeW: 3, shadow: false })
       })
     },
     { height: 5.0, width: 4.25 },
   )
+  onLeaderboard((boards) => {
+    const live = boards[key]
+    if (!live?.length) return
+    rows = live.map((r) => ({ name: r.name, value: shortMoney(r.value), me: r.id === net.sessionId }))
+    board.repaint()
+  })
   board.object.position.set(0, 4.6, 0.21)
   g.add(board.object)
   const label = textLabel(title, { height: title.length > 8 ? 1.0 : 1.4, px: 100, fill: titleFill, billboard: false })
@@ -825,17 +832,6 @@ export function buildProps(scene) {
     sign.object.rotation.y = Math.PI / 2
     root.add(sign.object)
   }
-  const luckText = (s) => [{ text: `☘ Luck event in ${mmss(s)}`, px: 72, fill: ['#b8ff8a', '#4ad21a'], stroke: '#0a3a0a' }]
-  const luckTimer = textLabel(luckText(remaining(TIMERS.luckEvent.period, TIMERS.luckEvent.startAt)), {
-    height: 1.6,
-    billboard: false,
-    doubleSided: true,
-  })
-  luckTimer.object.position.set(-44, 9.6, 0)
-  luckTimer.object.rotation.y = Math.PI / 2
-  root.add(luckTimer.object)
-
-  let lastSecond = -1
   return {
     piles,
     pads,
@@ -857,12 +853,6 @@ export function buildProps(scene) {
         l.rotation.x = Math.sin(t * 1.6 + i) * 0.08
         r.rotation.x = -Math.sin(t * 1.6 + i) * 0.08
       })
-      const left = remaining(TIMERS.luckEvent.period, TIMERS.luckEvent.startAt)
-      const sec = Math.ceil(left)
-      if (sec !== lastSecond) {
-        lastSecond = sec
-        luckTimer.setLines(luckText(left))
-      }
     },
   }
 }

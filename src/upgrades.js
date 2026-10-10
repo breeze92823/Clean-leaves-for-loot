@@ -29,7 +29,8 @@ export function closeUpgrades() {
   notify()
 }
 
-function apply() {
+// Re-derives bag size and walk speed from the bought levels (also after net.js loads a save).
+export function applyUpgrades() {
   state.backpackMax = HUD_START.backpackMax + upgradeBonus('capacity')
   player.moveSpeed = PHYSICS.moveSpeed + upgradeBonus('walk')
 }
@@ -42,7 +43,7 @@ export function buyUpgrade(id) {
   if (state.cash < price) return toast('Not enough cash!')
   state.cash -= price
   state.upgrades[id] += 1
-  apply()
+  applyUpgrades()
   toast(`${u.name} Lv.${state.upgrades[id]}!`)
   notify()
 }

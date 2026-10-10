@@ -54,6 +54,7 @@ jobs:
         env:
           VITE_BUY_WITH_BLOXBUX: ${{ vars.BUY_WITH_BLOXBUX }}
           VITE_START_CASH: ${{ vars.START_CASH }}
+          VITE_SERVER_URL: ${{ vars.SERVER_URL }}
         run: |
           if [ "${{ steps.channel.outputs.channel }}" = "prod" ]; then
             npm run build

@@ -24,6 +24,8 @@ import { buildDefaultCharacter, loadBaseCharacter } from './avatar/character.js'
 import { applyProportions, attachEquippedAccessories } from './avatar/loader.js'
 import { attachBlower, setHeldVacuum, animateHeldVacuum } from './avatar/blower.js'
 import { disposeAnimator, makeAnimator } from './avatar/animator.js'
+import { initNet, sendPose, syncAvatar } from './net.js'
+import { createRemotePlayers } from './remotePlayers.js'
 
 // --- Bloxity + player state -----------------------------------------------
 bloxity.init()
@@ -88,6 +90,8 @@ leaves.onPileCleared(() => {
   notify()
 })
 createHud({ showMenu: bloxity.showMenu })
+const remotes = createRemotePlayers(scene)
+initNet() // saves/loads progress and joins the shared room (no-op without a server)
 
 // --- Player avatar ----------------------------------------------------------
 // Always the game's own character (player.glb, or the procedural fallback). A
@@ -152,7 +156,10 @@ bloxity.subscribeAuth((s) => {
     loadAvatar() // also runs once at start to swap in the real rig
   }
 })
-bloxity.onAvatarChanged(loadAvatar)
+bloxity.onAvatarChanged(() => {
+  loadAvatar()
+  syncAvatar()
+})
 bloxity.onProportionsChanged(() => applyProportions(avatar, bloxity.getProportions()))
 
 bloxity.onSetting((key, value) => {
@@ -189,6 +196,8 @@ renderer.setAnimationLoop(() => {
     turn: inputState.move.x,
     blowing,
   })
+  sendPose(player, Math.hypot(player.velocity.x, player.velocity.z), blowing ? 'blow' : '')
+  remotes.update(dt, clock.elapsedTime, player.position)
   setHeldVacuum(blower, state.vacuum) // no-op unless a different vacuum was equipped
   animateHeldVacuum(blower, clock.elapsedTime)
   syncAura()

@@ -9,6 +9,18 @@ export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
 // Shows the Bloxbux (gem) buy buttons, e.g. in the Upgrades window (see .env.example).
 export const BUY_WITH_BLOXBUX = import.meta.env.VITE_BUY_WITH_BLOXBUX === 'true'
 
+// Colyseus game server (Clean-leaves-for-loot-backend). Empty = offline: no saving, no other players.
+// Local dev falls back to the server's default port; a deployed build must set VITE_SERVER_URL.
+export const SERVER_URL = import.meta.env.VITE_SERVER_URL || (import.meta.env.DEV ? 'ws://localhost:2567' : '')
+export const NET = {
+  poseHz: 15, // pose messages per second
+  saveDebounce: 1.5, // s of quiet after a state change before saving
+  saveMaxWait: 8, // s: a continuous change stream (training) still saves this often
+  remoteLerp: 12, // 1/s: how fast remote players ease toward their last reported pose
+  remoteFade: 40, // m: remote players further away than this are hidden
+  maxRemotes: 24, // drawn at once (nearest first)
+}
+
 // --- World (metres: +X east, +Z south, +Y up) -------------------------------
 export const GROUND_Y = 0
 export const GROUND_SIZE = 1000 // square grass ground, centred on the origin (the hub floor sits on top)
