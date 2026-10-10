@@ -3,7 +3,7 @@
 // Plain DOM over the canvas. Menu tiles open a placeholder panel; purchase
 // buttons show a toast (no store yet).
 import './hud.css'
-import { DEV_MODE, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, FREE_GIFT, DAILY, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
+import { DEV_MODE, DISABLE_TUTORIALS, INDEX, BUY_WITH_BLOXBUX, LEAVES, LEVEL_UP_POPUP, FREE_GIFT, DAILY, UPGRADES, VACUUMS, AURAS, VACUUM_RARITY } from './config.js'
 import { player, respawn } from './player.js'
 import { ICONS, auraIcon, vacuumIcon } from './icons.js'
 import { mmss } from './timers.js'
@@ -422,7 +422,7 @@ export function createHud({ showMenu }) {
   const tasks = {}
   help.querySelectorAll('[data-task]').forEach((el) => (tasks[el.dataset.task] = el))
   let helpDone = false
-  if (DEV_MODE) {
+  if (DEV_MODE || DISABLE_TUTORIALS) {
     helpDone = true
     help.classList.add('hide')
   }

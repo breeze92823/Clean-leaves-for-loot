@@ -5,7 +5,7 @@
 // until that answer is in). The step machine itself is tutorialLogic.js.
 import { ExtrudeGeometry, Group, InstancedMesh, Mesh, MeshStandardMaterial, Object3D, Shape } from 'three'
 import './tutorial.css'
-import { LEAVES, SELL_STAND, TUTORIAL, VACUUM_STAND, VACUUMS } from './config.js'
+import { DISABLE_TUTORIALS, LEAVES, SELL_STAND, TUTORIAL, VACUUM_STAND, VACUUMS } from './config.js'
 import { player, floorAt } from './player.js'
 import { notify, shortMoney, state, totalPower } from './state.js'
 import { padWithMult } from './trainPads.js'
@@ -168,7 +168,7 @@ export function createTutorial(scene, loot) {
   let prev = state.tutorialStep
   let completeUntil = 0
   function update(t) {
-    if (!state.tutorialReady) return
+    if (DISABLE_TUTORIALS || !state.tutorialReady) return
     const step = state.tutorialStep
     if (prev < TUTORIAL.steps && step >= TUTORIAL.steps) completeUntil = performance.now() + TUTORIAL.completeMs
     prev = step
