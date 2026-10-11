@@ -17,7 +17,7 @@ export const net = {
   room: null,
   connected: false,
   hydrated: false, // a progress/noProgress answer arrived: saving is allowed
-  leaderboard: { power: [], rebirths: [], leaves: [] }, // rows { id, name, value, avatar? }
+  leaderboard: { power: [], rebirths: [], leaves: [], level: [] }, // rows { id, name, value, avatar? }
   get sessionId() {
     return this.room?.sessionId ?? null
   },
@@ -181,7 +181,7 @@ function attach(room) {
     console.warn('[net] server could not read the saved progress; saving is off for this session')
   })
   room.onMessage('leaderboard', (rows) => {
-    net.leaderboard = { power: rows?.power ?? [], rebirths: rows?.rebirths ?? [], leaves: rows?.leaves ?? [] }
+    net.leaderboard = { power: rows?.power ?? [], rebirths: rows?.rebirths ?? [], leaves: rows?.leaves ?? [], level: rows?.level ?? [] }
     for (const fn of boardListeners) fn(net.leaderboard)
   })
   room.onLeave(() => {

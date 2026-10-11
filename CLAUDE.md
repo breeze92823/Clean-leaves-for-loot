@@ -1,5 +1,9 @@
 # Clean Leaves for Loot
 
+## Repos
+- Frontend (this repo): `C:\ThreeJS\Clean-leaves-for-loot\Clean-leaves-for-loot`
+- Backend: `C:\ThreeJS\Clean-leaves-for-loot\Clean-leaves-for-loot-backend` (Colyseus server). "Backend" always means this folder; "frontend" means this repo.
+
 Three.js (vanilla, no React) + Vite. A walled hub (studded plaza, terraced walls, shop stands, leaderboards, portal, training mounds) opening west onto a leaf field, plus a DOM HUD. Everything is procedural (canvas textures, SVG icons); the only imported model is the Bloxity base rig `public/avatars/player.glb`. Font: Fredoka (Google Fonts, falls back gracefully).
 
 - `npm run dev` / `npm run build`. `VITE_DEV_MODE=true` (see `.env.example`) skips the Bloxity SDK/CDN.

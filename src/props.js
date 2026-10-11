@@ -768,6 +768,7 @@ export function buildProps(scene) {
   leaderboard(root, -6, -22.5, 0.05, 'power', 'Power', ['#ffe48a', '#f6a21a'], 'Power', '#ffb23a')
   leaderboard(root, 4.5, -24, 0, 'rebirths', 'Rebirths', ['#ff8a8a', '#e2222a'], 'Rebirths', '#ff5a5a')
   leaderboard(root, 14, -23, -0.2, 'leaves', 'Leaves Cleaned', ['#c4ff7a', '#4cc81a'], 'Leaves', '#7aff4a')
+  leaderboard(root, 23, -23.5, -0.3, 'level', 'Levels', ['#a8e4ff', '#1f9bff'], 'Level', '#62c4ff')
 
   // Beside the west opening (left as you walk out to the field): the controls reference.
   const controls = controlsBoard(root, -23, 19.5, facing(-23, 19.5, 0, 4))
